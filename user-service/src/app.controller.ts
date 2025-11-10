@@ -95,4 +95,23 @@ export class AppController {
       };
     }
   }
+
+  @MessagePattern('user.get_all_with_push_tokens')
+  async getAllUsersWithPushTokens() {
+    try {
+      const users = await this.appService.getAllUsersWithPushTokens();
+      return {
+        success: true,
+        message: 'Users retrieved successfully',
+        data: users,
+      };
+    } catch (error) {
+      console.error('Error in getAllUsersWithPushTokens:', error);
+      return {
+        success: false,
+        message: 'Failed to get users',
+        error: error.message || 'Internal server error',
+      };
+    }
+  }
 }

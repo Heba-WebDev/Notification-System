@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { AppController } from './app.controller';
+import { UsersController } from './users.controller';
 import { AppService } from './app.service';
 import { RABBITMQ_CONFIG } from '@shared/config/rabbitmq.config';
 
@@ -41,7 +42,7 @@ import { RABBITMQ_CONFIG } from '@shared/config/rabbitmq.config';
       },
     ]),
   ],
-  controllers: [AppController],
+  controllers: [AppController, UsersController],
   providers: [AppService],
 })
 export class AppModule {}

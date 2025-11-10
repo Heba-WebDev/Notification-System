@@ -1,0 +1,35 @@
+{
+  "name": "notification-system",
+  "version": "1.0.0",
+  "description": "A distributed notification system built with NestJS, RabbitMQ, PostgreSQL, and Redis.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:e2e": "ts-node -r tsconfig-paths/register test-end-to-end.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Heba-WebDev/Notification-System.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Heba-WebDev/Notification-System/issues"
+  },
+  "homepage": "https://github.com/Heba-WebDev/Notification-System#readme",
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "axios": "^1.13.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@nestjs/microservices": "^11.1.8",
+    "amqp-connection-manager": "^5.0.0",
+    "amqplib": "^0.10.9",
+    "rxjs": "^7.8.2"
+  }
+}

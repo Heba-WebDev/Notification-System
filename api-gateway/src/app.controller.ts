@@ -3,6 +3,8 @@ import {
   Post,
   Body,
   Get,
+  Put,
+  Param,
   Inject,
   HttpException,
   HttpStatus,
@@ -101,4 +103,5 @@ export class AppController {
       data: { timestamp: new Date().toISOString() },
     };
   }
+
 }

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Push Token Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        h2 {
+            color: #555;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .token-display {
+            background: #f5f5f5;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .token-display.empty {
+            color: #999;
+            font-style: italic;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        button.success {
+            background: #10b981;
+        }
+        
+        button.danger {
+            background: #ef4444;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .users-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .user-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .user-item strong {
+            color: #667eea;
+        }
+        
+        .user-item .token {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🔔 Push Token Manager</h1>
+            <p>Get your browser's push token and register it with your account</p>
+        </div>
+
+        <!-- Get Push Token Section -->
+        <div class="card">
+            <h2>1. Get Your Push Token</h2>
+            <div class="section">
+                <button id="requestPermissionBtn">Request Notification Permission</button>
+                <button id="getTokenBtn" disabled>Get Push Token</button>
+                
+                <div id="permissionStatus" class="status info" style="display: none;"></div>
+                
+                <div id="tokenDisplay" class="token-display empty" style="display: none;">
+                    No token yet. Click "Get Push Token" after granting permission.
+                </div>
+            </div>
+        </div>
+
+        <!-- Register Token Section -->
+        <div class="card">
+            <h2>2. Register Token with User</h2>
+            <div class="section">
+                <input type="text" id="userIdInput" placeholder="Enter your User ID (UUID)">
+                <button id="registerTokenBtn" disabled>Register Push Token</button>
+                <div id="registerStatus" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- View All Tokens Section -->
+        <div class="card">
+            <h2>3. View All Registered Push Tokens</h2>
+            <div class="section">
+                <button id="loadUsersBtn">Load All Users with Push Tokens</button>
+                <div id="usersList" class="users-list"></div>
+            </div>
+        </div>
+
+        <!-- Test Notification Section -->
+        <div class="card">
+            <h2>4. Test Push Notification</h2>
+            <div class="section">
+                <input type="text" id="testUserIdInput" placeholder="Enter User ID (UUID)">
+                <input type="text" id="testTemplateIdInput" placeholder="Enter Template ID (UUID)">
+                <button id="testNotificationBtn">Send Test Notification</button>
+                <button id="testServiceWorkerBtn" style="background: #10b981;">Test Service Worker</button>
+                <div id="testStatus" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Debug Section -->
+        <div class="card">
+            <h2>5. Debug Information</h2>
+            <div class="section">
+                <button id="checkServiceWorkerBtn">Check Service Worker Status</button>
+                <button id="checkPermissionsBtn">Check Notification Permissions</button>
+                <div id="debugInfo" class="token-display" style="display: none; margin-top: 15px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api';
+        let currentPushSubscription = null;
+
+        // Check if browser supports notifications
+        if (!('Notification' in window)) {
+            alert('This browser does not support notifications!');
+        }
+
+        // Request Permission
+        document.getElementById('requestPermissionBtn').addEventListener('click', async () => {
+            try {
+                const permission = await Notification.requestPermission();
+                const statusDiv = document.getElementById('permissionStatus');
+                
+                if (permission === 'granted') {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ Notification permission granted!';
+                    statusDiv.style.display = 'block';
+                    document.getElementById('getTokenBtn').disabled = false;
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ Notification permission denied. Please enable it in browser settings.';
+                    statusDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error requesting permission:', error);
+                alert('Error requesting permission: ' + error.message);
+            }
+        });
+
+        // VAPID Public Key (from push-service .env)
+        const VAPID_PUBLIC_KEY = 'BAdA6arjTJFlehRsH3TUr0I_t2RVziX3sRydkK9dAqIpeQVsVzvkMgv4tbpCD6dKcS3w0yoxORs2Qx29noYc_E0';
+
+        // Get Push Token
+        document.getElementById('getTokenBtn').addEventListener('click', async () => {
+            try {
+                if (!('serviceWorker' in navigator)) {
+                    throw new Error('Service Workers not supported in this browser');
+                }
+
+                // Register service worker
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                console.log('Service Worker registered:', registration);
+
+                // Get push subscription with VAPID key
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+
+                currentPushSubscription = subscription;
+                
+                // Display token (full subscription object as JSON)
+                const tokenDisplay = document.getElementById('tokenDisplay');
+                tokenDisplay.textContent = JSON.stringify(subscription, null, 2);
+                tokenDisplay.className = 'token-display';
+                tokenDisplay.style.display = 'block';
+                
+                document.getElementById('registerTokenBtn').disabled = false;
+                
+                console.log('Push Subscription:', subscription);
+                
+                // Show success message
+                const statusDiv = document.getElementById('permissionStatus');
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Real push token generated! You can now receive browser notifications.';
+                statusDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Error getting push token:', error);
+                
+                // Show error message
+                const statusDiv = document.getElementById('permissionStatus');
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Error: ' + error.message + '. Make sure service worker is accessible.';
+                statusDiv.style.display = 'block';
+            }
+        });
+
+        // Register Token
+        document.getElementById('registerTokenBtn').addEventListener('click', async () => {
+            const userId = document.getElementById('userIdInput').value.trim();
+            const statusDiv = document.getElementById('registerStatus');
+            
+            if (!userId) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Please enter a User ID';
+                statusDiv.style.display = 'block';
+                return;
+            }
+
+            if (!currentPushSubscription) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ No push token available. Please get a token first.';
+                statusDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                // Convert PushSubscription to a serializable format
+                // The keys are ArrayBuffers, so we need to convert them to base64url strings
+                const subscriptionData = {
+                    endpoint: currentPushSubscription.endpoint,
+                    keys: {
+                        p256dh: arrayBufferToBase64(currentPushSubscription.getKey('p256dh')),
+                        auth: arrayBufferToBase64(currentPushSubscription.getKey('auth'))
+                    }
+                };
+                
+                // Store as JSON string
+                const pushToken = JSON.stringify(subscriptionData);
+                
+                const response = await fetch(`${API_BASE_URL}/users/${userId}/push-token`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ push_token: pushToken }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ Push token registered successfully!';
+                    statusDiv.style.display = 'block';
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ Error: ' + (data.message || 'Failed to register token');
+                    statusDiv.style.display = 'block';
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Error: ' + error.message;
+                statusDiv.style.display = 'block';
+            }
+        });
+
+        // Load All Users
+        document.getElementById('loadUsersBtn').addEventListener('click', async () => {
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = '<div class="loading">Loading users...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/push-tokens`);
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    const users = data.data || [];
+                    
+                    if (users.length === 0) {
+                        usersList.innerHTML = '<div class="status info">No users with push tokens found.</div>';
+                        return;
+                    }
+
+                    usersList.innerHTML = users.map(user => `
+                        <div class="user-item">
+                            <strong>User ID:</strong> ${user.id}<br>
+                            <strong>Email:</strong> ${user.email || 'N/A'}<br>
+                            <div class="token"><strong>Push Token:</strong> ${user.push_token || 'None'}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    usersList.innerHTML = '<div class="status error">Error loading users: ' + (data.message || 'Unknown error') + '</div>';
+                }
+            } catch (error) {
+                usersList.innerHTML = '<div class="status error">Error: ' + error.message + '</div>';
+            }
+        });
+
+        // Test Notification
+        document.getElementById('testNotificationBtn').addEventListener('click', async () => {
+            const userId = document.getElementById('testUserIdInput').value.trim();
+            const templateId = document.getElementById('testTemplateIdInput').value.trim();
+            const statusDiv = document.getElementById('testStatus');
+            
+            if (!userId) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Please enter a User ID';
+                statusDiv.style.display = 'block';
+                return;
+            }
+
+            if (!templateId) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Please enter a Template ID';
+                statusDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                statusDiv.className = 'status info';
+                statusDiv.textContent = '⏳ Sending test notification...';
+                statusDiv.style.display = 'block';
+
+                const response = await fetch(`${API_BASE_URL}/notifications/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        type: 'push',
+                        user_id: userId,
+                        template_id: templateId,
+                        variables: {
+                            name: 'Test User',
+                            message: 'This is a test push notification!'
+                        }
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ Test notification sent! Request ID: ' + data.data.request_id;
+                    statusDiv.style.display = 'block';
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ Error: ' + (data.message || 'Failed to send notification');
+                    statusDiv.style.display = 'block';
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Error: ' + error.message;
+                statusDiv.style.display = 'block';
+            }
+        });
+
+        // Helper function to convert VAPID key (for real Web Push)
+        function urlBase64ToUint8Array(base64String) {
+            try {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding)
+                    .replace(/\-/g, '+')
+                    .replace(/_/g, '/');
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            } catch (error) {
+                console.error('Error converting VAPID key:', error);
+                throw new Error('Invalid VAPID key format');
+            }
+        }
+
+        // Helper function to convert ArrayBuffer to base64url string
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            // Convert to base64 and then to base64url (replace + with -, / with _, remove =)
+            return window.btoa(binary)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=/g, '');
+        }
+
+        // Test Service Worker directly
+        document.getElementById('testServiceWorkerBtn').addEventListener('click', async () => {
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (!registration) {
+                    alert('❌ Service Worker not registered! Click "Get Push Token" first.');
+                    return;
+                }
+
+                await registration.showNotification('Service Worker Test', {
+                    body: 'If you see this notification, your service worker is working!',
+                    icon: '/icon.png',
+                    badge: '/badge.png',
+                    tag: 'test-' + Date.now()
+                });
+
+                const statusDiv = document.getElementById('testStatus');
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Service Worker test notification sent! Check if you see it.';
+                statusDiv.style.display = 'block';
+            } catch (error) {
+                const statusDiv = document.getElementById('testStatus');
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Error: ' + error.message;
+                statusDiv.style.display = 'block';
+            }
+        });
+
+        // Check Service Worker Status
+        document.getElementById('checkServiceWorkerBtn').addEventListener('click', async () => {
+            const debugInfo = document.getElementById('debugInfo');
+            let info = '🔍 Service Worker Status:\n\n';
+
+            try {
+                if (!('serviceWorker' in navigator)) {
+                    info += '❌ Service Workers not supported in this browser\n';
+                } else {
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (registration) {
+                        info += '✅ Service Worker Registered\n';
+                        info += `   Scope: ${registration.scope}\n`;
+                        info += `   Active: ${registration.active ? 'Yes' : 'No'}\n`;
+                        info += `   Installing: ${registration.installing ? 'Yes' : 'No'}\n`;
+                        info += `   Waiting: ${registration.waiting ? 'Yes' : 'No'}\n`;
+                        
+                        if (registration.pushManager) {
+                            const subscription = await registration.pushManager.getSubscription();
+                            if (subscription) {
+                                info += '\n✅ Push Subscription Active\n';
+                                info += `   Endpoint: ${subscription.endpoint.substring(0, 50)}...\n`;
+                            } else {
+                                info += '\n❌ No Push Subscription\n';
+                            }
+                        }
+                    } else {
+                        info += '❌ Service Worker Not Registered\n';
+                        info += '   Click "Get Push Token" to register\n';
+                    }
+                }
+            } catch (error) {
+                info += `❌ Error: ${error.message}\n`;
+            }
+
+            debugInfo.textContent = info;
+            debugInfo.style.display = 'block';
+        });
+
+        // Check Notification Permissions
+        document.getElementById('checkPermissionsBtn').addEventListener('click', () => {
+            const debugInfo = document.getElementById('debugInfo');
+            let info = '🔍 Notification Permissions:\n\n';
+
+            const permission = Notification.permission;
+            info += `Status: ${permission}\n\n`;
+
+            if (permission === 'granted') {
+                info += '✅ Notifications are allowed\n';
+                info += '   You should be able to receive push notifications\n';
+            } else if (permission === 'denied') {
+                info += '❌ Notifications are blocked\n';
+                info += '   Go to browser settings to enable notifications\n';
+            } else {
+                info += '⚠️  Permission not requested yet\n';
+                info += '   Click "Request Notification Permission" first\n';
+            }
+
+            debugInfo.textContent = info;
+            debugInfo.style.display = 'block';
+        });
+
+        // Check current permission status
+        if (Notification.permission === 'granted') {
+            document.getElementById('getTokenBtn').disabled = false;
+            document.getElementById('permissionStatus').className = 'status success';
+            document.getElementById('permissionStatus').textContent = '✅ Notification permission already granted!';
+            document.getElementById('permissionStatus').style.display = 'block';
+        } else if (Notification.permission === 'denied') {
+            document.getElementById('permissionStatus').className = 'status error';
+            document.getElementById('permissionStatus').textContent = '❌ Notification permission denied. Please enable it in browser settings.';
+            document.getElementById('permissionStatus').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
+
