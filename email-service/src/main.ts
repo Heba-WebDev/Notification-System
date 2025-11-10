@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { RABBITMQ_CONFIG } from '@shared/config/rabbitmq.config';
 
 async function bootstrap() {
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
@@ -8,8 +9,8 @@ async function bootstrap() {
     {
       transport: Transport.RMQ,
       options: {
-        urls: ['amqp://localhost:5672'],
-        queue: 'email_queue',
+        urls: RABBITMQ_CONFIG.urls,
+        queue: RABBITMQ_CONFIG.queues.email,
         queueOptions: {
           durable: true,
         },
@@ -17,5 +18,6 @@ async function bootstrap() {
     },
   );
   await app.listen();
+  console.log('Email Service is listening');
 }
 bootstrap();
