@@ -60,4 +60,12 @@ export class AppService {
     Object.assign(user, userData);
     return await this.userRepository.save(user);
   }
+
+  async getAllUsersWithPushTokens(): Promise<User[]> {
+    return await this.userRepository
+      .createQueryBuilder('user')
+      .select(['user.id', 'user.email', 'user.push_token', 'user.created_at'])
+      .where('user.push_token IS NOT NULL')
+      .getMany();
+  }
 }
