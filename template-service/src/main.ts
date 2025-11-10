@@ -8,7 +8,7 @@ async function bootstrap() {
     {
       transport: Transport.RMQ,
       options: {
-        urls: ['amqp://localhost:5672'],
+        urls: ['amqp://admin:password@localhost:5672'],
         queue: 'template_queue',
         queueOptions: {
           durable: true,
@@ -17,5 +17,6 @@ async function bootstrap() {
     },
   );
   await app.listen();
+  console.log('Template Service is listening');
 }
 bootstrap();
