@@ -1,0 +1,43 @@
+services:
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: api-gateway/Dockerfile
+    container_name: notification-api-gateway
+    ports:
+      - "${API_GATEWAY_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      # Override RABBITMQ_URL for Docker (use service name instead of localhost)
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:password@rabbitmq:5672}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-admin}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-password}
+      - RABBITMQ_HOST=${RABBITMQ_HOST:-rabbitmq}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - JWT_SECRET=${JWT_SECRET:-development-jwt-secret-change-in-production-min-32-characters}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USERNAME=${DB_USERNAME:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-BAdA6arjTJFlehRsH3TUr0I_t2RVziX3sRydkK9dAqIpeQVsVzvkMgv4tbpCD6dKcS3w0yoxORs2Qx29noYc_E0}
+      - PORT=${PORT:-3000}
+      - API_GATEWAY_PORT=${API_GATEWAY_PORT:-3000}
+    # Optional: Load from .env if you want to override defaults
+    # env_file:
+    #   - .env
+    networks:
+      - notification-network
+    restart: unless-stopped
+    # Note: Infrastructure services (rabbitmq, postgres) should be running separately
+    # They should be on the same notification-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/v1/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  notification-network:
+    external: true
+

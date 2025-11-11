@@ -253,12 +253,41 @@
             }
         });
 
-        // VAPID Public Key (from push-service .env)
-        const VAPID_PUBLIC_KEY = 'BAdA6arjTJFlehRsH3TUr0I_t2RVziX3sRydkK9dAqIpeQVsVzvkMgv4tbpCD6dKcS3w0yoxORs2Qx29noYc_E0';
+        // VAPID Public Key - fetch from API
+        let VAPID_PUBLIC_KEY = null;
+        
+        // Fetch VAPID key from API
+        async function loadVapidKey() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/notifications/vapid-key`);
+                if (response.ok) {
+                    const data = await response.json();
+                    VAPID_PUBLIC_KEY = data.publicKey;
+                    console.log('VAPID key loaded from API');
+                } else {
+                    console.error('Failed to load VAPID key:', response.statusText);
+                    alert('Failed to load VAPID key. Push notifications may not work.');
+                }
+            } catch (error) {
+                console.error('Error loading VAPID key:', error);
+                alert('Error loading VAPID key: ' + error.message);
+            }
+        }
+        
+        // Load VAPID key on page load
+        loadVapidKey();
 
         // Get Push Token
         document.getElementById('getTokenBtn').addEventListener('click', async () => {
             try {
+                // Ensure VAPID key is loaded
+                if (!VAPID_PUBLIC_KEY) {
+                    await loadVapidKey();
+                    if (!VAPID_PUBLIC_KEY) {
+                        throw new Error('VAPID public key not available. Please refresh the page.');
+                    }
+                }
+                
                 if (!('serviceWorker' in navigator)) {
                     throw new Error('Service Workers not supported in this browser');
                 }

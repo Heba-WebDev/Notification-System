@@ -28,10 +28,6 @@ import {
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { AuthGuard } from './auth.guard';
 
-/**
- * Notifications Controller
- * Handles sending email and push notifications
- */
 @ApiTags('Notifications')
 @ApiBearerAuth('JWT-auth')
 @Controller('notifications')
@@ -132,7 +128,6 @@ Returns a \`request_id\` that can be used to track the notification status.`,
       priority: sendNotificationDto.priority,
     });
 
-
     // Check USER_SERVICE circuit
     if (this.circuitBreakerService.isOpen('USER_SERVICE')) {
       throw new HttpException(
@@ -212,8 +207,9 @@ Returns a \`request_id\` that can be used to track the notification status.`,
     }
 
     // Use client-provided request_id or generate one
-    const requestId = sendNotificationDto.request_id || this.appService.generateRequestId();
-    
+    const requestId =
+      sendNotificationDto.request_id || this.appService.generateRequestId();
+
     // Flatten UserData structure for template substitution
     // UserData has { name, link, meta }, but templates need flat variables
     const templateVariables = {
@@ -221,7 +217,7 @@ Returns a \`request_id\` that can be used to track the notification status.`,
       link: sendNotificationDto.variables.link,
       ...(sendNotificationDto.variables.meta || {}), // Spread meta fields
     };
-    
+
     // Queue notification (these are fire-and-forget, no circuit breaker needed)
     const notificationData = {
       request_id: requestId,
@@ -292,9 +288,12 @@ Users can only see their own notifications.`,
   })
   async getMyNotifications(@Request() req: any): Promise<ResponseDto<any>> {
     const userId = req.user?.user_id;
-    
+
     if (!userId) {
-      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     try {
@@ -328,4 +327,38 @@ Users can only see their own notifications.`,
     }
   }
 
+  /**
+   * Get VAPID public key for push notifications
+   * Returns the VAPID public key needed for browser push subscriptions
+   */
+  @Get('vapid-key')
+  @ApiOperation({
+    summary: 'Get VAPID public key',
+    description:
+      'Returns the VAPID public key required for browser push notification subscriptions.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'VAPID public key',
+    schema: {
+      example: {
+        publicKey:
+          'BAdA6arjTJFlehRsH3TUr0I_t2RVziX3sRydkK9dAqIpeQVsVzvkMgv4tbpCD6dKcS3w0yoxORs2Qx29noYc_E0',
+      },
+    },
+  })
+  getVapidKey() {
+    const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+
+    if (!vapidPublicKey) {
+      throw new HttpException(
+        'VAPID public key not configured',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    return {
+      publicKey: vapidPublicKey,
+    };
+  }
 }

@@ -10,9 +10,13 @@ import {
 } from '@nestjs/microservices';
 import { firstValueFrom, timeout } from 'rxjs';
 
+const RABBITMQ_URL =
+  process.env.RABBITMQ_URL ||
+  `amqp://${process.env.RABBITMQ_USERNAME || 'admin'}:${process.env.RABBITMQ_PASSWORD || 'password'}@${process.env.RABBITMQ_HOST || 'localhost'}:${process.env.RABBITMQ_PORT || '5672'}`;
+
 const RABBITMQ_CONFIG = {
-  urls: ['amqp://admin:password@localhost:5672'],
-  queue: 'user_queue',
+  urls: [RABBITMQ_URL],
+  queue: process.env.RABBITMQ_QUEUE_USER || 'user_queue',
 };
 
 async function testHealthCheck() {

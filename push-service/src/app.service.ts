@@ -20,7 +20,16 @@ export class AppService {
     // For testing without VAPID keys, we'll skip initialization
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-    const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:test@example.com';
+    const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:noreply@example.com';
+    
+    // Validate VAPID keys in production
+    if (process.env.NODE_ENV === 'production' && (!vapidPublicKey || !vapidPrivateKey)) {
+      console.warn(
+        '⚠️  WARNING: VAPID keys not set in production. Push notifications will fail.',
+      );
+      console.warn('   Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in environment variables.');
+      console.warn('   Generate keys with: npx web-push generate-vapid-keys');
+    }
 
     if (vapidPublicKey && vapidPrivateKey) {
       try {

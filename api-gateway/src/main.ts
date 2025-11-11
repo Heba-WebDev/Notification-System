@@ -38,7 +38,7 @@ async function bootstrap() {
         description: 'Enter JWT token',
         in: 'header',
       },
-      'JWT-auth', // This name here is important for matching up with @ApiBearerAuth() in your controller!
+      'JWT-auth', // matching up with @ApiBearerAuth() in controller!
     )
     .addTag('Health', 'Service health check endpoints')
     .addTag('Authentication', 'User login endpoints')
@@ -50,15 +50,16 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
-      persistAuthorization: true, // Keep token after page refresh
-      tagsSorter: 'none', // Preserve the order defined in addTag() calls
+      persistAuthorization: true, // token after page refresh
+      tagsSorter: 'none',
       operationsSorter: 'alpha',
     },
   });
 
-  await app.listen(3000);
-  console.log('API Gateway running on port 3000');
-  console.log('Push Token Manager: http://localhost:3000/push-tokens.html');
-  console.log('Swagger Documentation: http://localhost:3000/api/docs');
+  const port = process.env.PORT || process.env.API_GATEWAY_PORT || 3000;
+  await app.listen(port);
+  console.log(`API Gateway running on port ${port}`);
+  console.log(`Push Token Manager: http://localhost:${port}/push-tokens.html`);
+  console.log(`Swagger Documentation: http://localhost:${port}/api/docs`);
 }
 bootstrap();

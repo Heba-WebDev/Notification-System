@@ -1,0 +1,35 @@
+services:
+  email-service:
+    build:
+      context: ..
+      dockerfile: email-service/Dockerfile
+    container_name: notification-email-service
+    environment:
+      - NODE_ENV=production
+      # RabbitMQ Configuration (Docker service name)
+      - RABBITMQ_URL=amqp://admin:password@notification-rabbitmq:5672
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=password
+      - RABBITMQ_HOST=notification-rabbitmq
+      - RABBITMQ_PORT=5672
+      # Database Configuration (Docker service names)
+      - DB_HOST=notification-postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_NAME=email_service
+      # Email Configuration (REQUIRED - no defaults for security)
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM:-${EMAIL_USER}}
+      - EMAIL_SERVICE=${EMAIL_SERVICE:-gmail}
+    networks:
+      - notification-network
+    restart: unless-stopped
+    # Note: Infrastructure services (rabbitmq, postgres) should be running separately
+    # They should be on the same notification-network
+
+networks:
+  notification-network:
+    external: true
+

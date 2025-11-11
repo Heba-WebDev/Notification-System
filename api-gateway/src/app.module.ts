@@ -56,7 +56,14 @@ import { AuthGuard } from './auth.guard';
       },
     ]),
   ],
-  controllers: [AppController, UsersController, AuthController, StatusController, HealthController, TemplatesController],
+  controllers: [
+    AppController,
+    UsersController,
+    AuthController,
+    StatusController,
+    HealthController,
+    TemplatesController,
+  ],
   providers: [AppService, CircuitBreakerService, AuthGuard],
 })
 export class AppModule {}
