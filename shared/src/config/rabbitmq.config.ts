@@ -7,6 +7,7 @@ export const RABBITMQ_CONFIG = {
     failed: 'failed.queue',
     user: 'user_queue',
     template: 'template_queue',
+    auth: 'auth_queue',
   },
   routingKeys: {
     email: 'email',

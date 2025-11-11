@@ -139,4 +139,51 @@ export class AppController {
       };
     }
   }
+
+  @MessagePattern('template.get_all')
+  async getAllTemplates(
+    @Payload() data: {
+      page?: number;
+      limit?: number;
+      type?: string;
+      language?: string;
+    },
+  ) {
+    try {
+      const page = data.page || 1;
+      const limit = data.limit || 10;
+      const type = data.type;
+      const language = data.language || 'en';
+
+      const result = await this.appService.getAllTemplates(
+        page,
+        limit,
+        type,
+        language,
+      );
+
+      const totalPages = Math.ceil(result.total / limit);
+
+      return {
+        success: true,
+        message: 'Templates retrieved successfully',
+        data: result.templates,
+        meta: {
+          total: result.total,
+          limit,
+          page,
+          total_pages: totalPages,
+          has_next: page < totalPages,
+          has_previous: page > 1,
+        },
+      };
+    } catch (error) {
+      console.error('Error in getAllTemplates:', error);
+      return {
+        success: false,
+        message: 'Failed to get templates',
+        error: error.message || 'Internal server error',
+      };
+    }
+  }
 }

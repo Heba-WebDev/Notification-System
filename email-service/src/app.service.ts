@@ -115,6 +115,48 @@ export class AppService {
     await this.emailLogRepository.query('SELECT 1');
   }
 
+  async updateStatus(
+    requestId: string,
+    status: string,
+    timestamp?: string,
+    error?: string,
+  ): Promise<EmailLog | null> {
+    const emailLog = await this.emailLogRepository.findOne({
+      where: { request_id: requestId },
+    });
+
+    if (!emailLog) {
+      return null;
+    }
+
+    // Map status values: 'delivered' -> 'sent', keep others as is
+    const mappedStatus = status === 'delivered' ? 'sent' : status;
+    
+    emailLog.status = mappedStatus;
+    if (error) {
+      emailLog.error_message = error;
+    }
+
+    await this.emailLogRepository.save(emailLog);
+
+    return emailLog;
+  }
+
+  async getNotificationsByUserId(userId: string): Promise<any[]> {
+    const notifications = await this.emailLogRepository.find({
+      where: { user_id: userId },
+      order: { created_at: 'DESC' },
+    });
+
+    return notifications.map((log) => ({
+      request_id: log.request_id,
+      status: log.status,
+      subject: log.subject,
+      error_message: log.error_message,
+      created_at: log.created_at,
+    }));
+  }
+
   private async moveToDeadLetterQueue(data: any, error: Error): Promise<void> {
     console.error(
       `Moving to dead-letter queue: ${data.request_id}`,
