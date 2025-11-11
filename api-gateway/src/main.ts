@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { join } from 'path';
 import { AppModule } from './app.module';
 
@@ -24,8 +25,40 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
 
+  // Swagger Configuration
+  const config = new DocumentBuilder()
+    .setTitle('Notification System API')
+    .setVersion('1.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Enter JWT token',
+        in: 'header',
+      },
+      'JWT-auth', // This name here is important for matching up with @ApiBearerAuth() in your controller!
+    )
+    .addTag('Health', 'Service health check endpoints')
+    .addTag('Authentication', 'User login endpoints')
+    .addTag('Users', 'User management endpoints')
+    .addTag('Templates', 'Template management endpoints')
+    .addTag('Notifications', 'Send email and push notifications')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true, // Keep token after page refresh
+      tagsSorter: 'none', // Preserve the order defined in addTag() calls
+      operationsSorter: 'alpha',
+    },
+  });
+
   await app.listen(3000);
   console.log('API Gateway running on port 3000');
   console.log('Push Token Manager: http://localhost:3000/push-tokens.html');
+  console.log('Swagger Documentation: http://localhost:3000/api/docs');
 }
 bootstrap();

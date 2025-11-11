@@ -1,9 +1,14 @@
-import { IsEnum, IsNotEmpty, IsObject, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsObject, IsString, IsOptional, IsInt, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { NotificationType } from './notification-type.enum';
+import { UserDataDto } from './user-data.dto';
 
+/**
+ * SendNotificationDto
+ */
 export class SendNotificationDto {
   @IsEnum(NotificationType)
-  type!: NotificationType;
+  notification_type!: NotificationType;
 
   @IsString()
   @IsNotEmpty()
@@ -11,8 +16,22 @@ export class SendNotificationDto {
 
   @IsString()
   @IsNotEmpty()
-  template_id!: string;
+  template_code!: string;
 
+  @ValidateNested()
+  @Type(() => UserDataDto)
+  variables!: UserDataDto;
+
+  @IsOptional()
+  @IsString()
+  request_id?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  priority?: number;
+
+  @IsOptional()
   @IsObject()
-  variables!: Record<string, any>;
+  metadata?: Record<string, any>;
 }

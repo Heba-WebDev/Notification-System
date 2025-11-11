@@ -52,4 +52,50 @@ export class AppService {
   async checkDatabase(): Promise<void> {
     await this.templateRepository.query('SELECT 1');
   }
+
+  async getAllTemplates(
+    page: number = 1,
+    limit: number = 10,
+    type?: string,
+    language: string = 'en',
+  ): Promise<{ templates: Template[]; total: number }> {
+    // First, get all templates with filters to group by unique (name, type, language)
+    const queryBuilder = this.templateRepository.createQueryBuilder('template');
+
+    if (type) {
+      queryBuilder.where('template.type = :type', { type });
+    }
+
+    if (language) {
+      queryBuilder.andWhere('template.language = :language', { language });
+    }
+
+    queryBuilder
+      .orderBy('template.name', 'ASC')
+      .addOrderBy('template.version', 'DESC');
+
+    const allTemplates = await queryBuilder.getMany();
+
+    // Group by name, type, language and take latest version
+    const templateMap = new Map<string, Template>();
+    allTemplates.forEach((template) => {
+      const key = `${template.name}-${template.type}-${template.language}`;
+      const existing = templateMap.get(key);
+      if (!existing || template.version > existing.version) {
+        templateMap.set(key, template);
+      }
+    });
+
+    const uniqueTemplates = Array.from(templateMap.values());
+    const total = uniqueTemplates.length;
+
+    // Apply pagination to unique templates
+    const skip = (page - 1) * limit;
+    const paginatedTemplates = uniqueTemplates.slice(skip, skip + limit);
+
+    return {
+      templates: paginatedTemplates,
+      total,
+    };
+  }
 }

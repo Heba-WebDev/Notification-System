@@ -70,6 +70,21 @@ export class AppService {
       .getMany();
   }
 
+  async deleteUser(userId: string): Promise<boolean> {
+    const user = await this.getUserById(userId);
+    if (!user) {
+      return false;
+    }
+
+    // Delete preferences first (due to foreign key constraint)
+    await this.preferencesRepository.delete({ user_id: userId });
+
+    // Delete user
+    await this.userRepository.delete(userId);
+
+    return true;
+  }
+
   async checkDatabase(): Promise<void> {
     await this.userRepository.query('SELECT 1');
   }

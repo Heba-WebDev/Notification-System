@@ -115,6 +115,34 @@ export class AppController {
     }
   }
 
+  @MessagePattern('user.delete')
+  async deleteUser(@Payload() data: { user_id: string }) {
+    try {
+      const deleted = await this.appService.deleteUser(data.user_id);
+
+      if (!deleted) {
+        return {
+          success: false,
+          message: 'User not found',
+          error: 'USER_NOT_FOUND',
+        };
+      }
+
+      return {
+        success: true,
+        message: 'User deleted successfully',
+        data: { user_id: data.user_id },
+      };
+    } catch (error) {
+      console.error('Error in deleteUser:', error);
+      return {
+        success: false,
+        message: 'Failed to delete user',
+        error: error.message || 'Internal server error',
+      };
+    }
+  }
+
   @MessagePattern('health.check')
   async healthCheck() {
     try {

@@ -255,6 +255,48 @@ export class AppService {
     await this.pushLogRepository.query('SELECT 1');
   }
 
+  async updateStatus(
+    requestId: string,
+    status: string,
+    timestamp?: string,
+    error?: string,
+  ): Promise<any | null> {
+    const pushLog = await this.pushLogRepository.findOne({
+      where: { request_id: requestId },
+    });
+
+    if (!pushLog) {
+      return null;
+    }
+
+    // Map status values: 'delivered' -> 'sent', keep others as is
+    const mappedStatus = status === 'delivered' ? 'sent' : status;
+    
+    pushLog.status = mappedStatus;
+    if (error) {
+      pushLog.error_message = error;
+    }
+
+    await this.pushLogRepository.save(pushLog);
+
+    return pushLog;
+  }
+
+  async getNotificationsByUserId(userId: string): Promise<any[]> {
+    const notifications = await this.pushLogRepository.find({
+      where: { user_id: userId },
+      order: { created_at: 'DESC' },
+    });
+
+    return notifications.map((log) => ({
+      request_id: log.request_id,
+      status: log.status,
+      title: log.title,
+      error_message: log.error_message,
+      created_at: log.created_at,
+    }));
+  }
+
   private async moveToDeadLetterQueue(data: any, error: Error): Promise<void> {
     // Log the failure for manual review or processing by a separate service
     console.error(

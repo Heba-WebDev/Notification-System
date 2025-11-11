@@ -25,7 +25,7 @@ services:
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password
-      POSTGRES_MULTIPLE_DATABASES: user_service,template_service,email_service,push_service
+      POSTGRES_MULTIPLE_DATABASES: user_service,template_service,email_service,push_service,auth_service
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
