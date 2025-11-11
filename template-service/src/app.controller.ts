@@ -121,4 +121,22 @@ export class AppController {
       };
     }
   }
+
+  @MessagePattern('health.check')
+  async healthCheck() {
+    try {
+      await this.appService.checkDatabase();
+      return {
+        success: true,
+        message: 'Template service is healthy',
+        data: { timestamp: new Date().toISOString() },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Template service is unhealthy',
+        error: error.message || 'Internal server error',
+      };
+    }
+  }
 }

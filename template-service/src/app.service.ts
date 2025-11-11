@@ -48,4 +48,8 @@ export class AppService {
     const template = this.templateRepository.create(templateData);
     return await this.templateRepository.save(template);
   }
+
+  async checkDatabase(): Promise<void> {
+    await this.templateRepository.query('SELECT 1');
+  }
 }

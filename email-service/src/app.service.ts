@@ -104,7 +104,22 @@ export class AppService {
         await this.emailLogRepository.save(emailLog);
       }
 
+      // Move to dead-letter queue after max retries
+      await this.moveToDeadLetterQueue(data, error);
+
       throw error; // Re-throw to trigger RabbitMQ retry/dead-letter queue
     }
+  }
+
+  async checkDatabase(): Promise<void> {
+    await this.emailLogRepository.query('SELECT 1');
+  }
+
+  private async moveToDeadLetterQueue(data: any, error: Error): Promise<void> {
+    console.error(
+      `Moving to dead-letter queue: ${data.request_id}`,
+      error.message,
+    );
+    // TODO: Implement dead-letter queue emission
   }
 }
