@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { UsersController } from './users.controller';
 import { AppService } from './app.service';
 import { RABBITMQ_CONFIG } from '@shared/config/rabbitmq.config';
+import { CircuitBreakerService } from './circuit-breaker.service';
 
 @Module({
   imports: [
@@ -43,6 +44,6 @@ import { RABBITMQ_CONFIG } from '@shared/config/rabbitmq.config';
     ]),
   ],
   controllers: [AppController, UsersController],
-  providers: [AppService],
+  providers: [AppService, CircuitBreakerService],
 })
 export class AppModule {}

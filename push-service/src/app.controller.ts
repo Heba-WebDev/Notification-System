@@ -1,5 +1,5 @@
 import { Controller } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
 import { AppService } from './app.service';
 
 @Controller()
@@ -16,6 +16,24 @@ export class AppController {
       console.error('Failed to process push notification:', error);
       // Message will go to dead letter queue after retries
       throw error;
+    }
+  }
+
+  @MessagePattern('health.check')
+  async healthCheck() {
+    try {
+      await this.appService.checkDatabase();
+      return {
+        success: true,
+        message: 'Push service is healthy',
+        data: { timestamp: new Date().toISOString() },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Push service is unhealthy',
+        error: error.message || 'Internal server error',
+      };
     }
   }
 }

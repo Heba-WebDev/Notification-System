@@ -32,7 +32,7 @@ export class AppController {
       };
     } catch (error) {
       console.error('Error in getUserById:', error);
-      
+
       // Handle invalid UUID format
       if (error.message === 'Invalid UUID format') {
         return {
@@ -41,7 +41,7 @@ export class AppController {
           error: 'INVALID_UUID',
         };
       }
-      
+
       return {
         success: false,
         message: 'Failed to get user',
@@ -110,6 +110,24 @@ export class AppController {
       return {
         success: false,
         message: 'Failed to get users',
+        error: error.message || 'Internal server error',
+      };
+    }
+  }
+
+  @MessagePattern('health.check')
+  async healthCheck() {
+    try {
+      await this.appService.checkDatabase();
+      return {
+        success: true,
+        message: 'User service is healthy',
+        data: { timestamp: new Date().toISOString() },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'User service is unhealthy',
         error: error.message || 'Internal server error',
       };
     }

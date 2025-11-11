@@ -15,7 +15,8 @@ export class AppService {
 
   async getUserById(userId: string): Promise<User | null> {
     // Validate UUID format before querying
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(userId)) {
       throw new Error('Invalid UUID format');
     }
@@ -67,5 +68,9 @@ export class AppService {
       .select(['user.id', 'user.email', 'user.push_token', 'user.created_at'])
       .where('user.push_token IS NOT NULL')
       .getMany();
+  }
+
+  async checkDatabase(): Promise<void> {
+    await this.userRepository.query('SELECT 1');
   }
 }
