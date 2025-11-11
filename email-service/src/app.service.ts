@@ -16,11 +16,22 @@ export class AppService {
     @InjectRepository(EmailLog)
     private readonly emailLogRepository: Repository<EmailLog>,
   ) {
+    // Validate required email credentials
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASS;
+
+    if (!emailUser || !emailPass) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('EMAIL_USER and EMAIL_PASS must be set in production');
+      }
+      console.warn('⚠️  EMAIL_USER and EMAIL_PASS not set. Email sending will fail.');
+    }
+
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: process.env.EMAIL_SERVICE || 'gmail',
       auth: {
-        user: process.env.EMAIL_USER || 'your-email@gmail.com',
-        pass: process.env.EMAIL_PASS || 'your-app-password',
+        user: emailUser || 'your-email@gmail.com',
+        pass: emailPass || 'your-app-password',
       },
     });
   }
@@ -67,8 +78,10 @@ export class AppService {
         body = body.replace(regex, data.variables[key] || '');
       });
 
+      const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com';
+      
       await this.transporter.sendMail({
-        from: process.env.EMAIL_FROM || 'noreply@example.com',
+        from: emailFrom,
         to: data.user.email,
         subject: subject,
         html: body,

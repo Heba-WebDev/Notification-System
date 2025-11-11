@@ -1,0 +1,30 @@
+services:
+  user-service:
+    build:
+      context: ..
+      dockerfile: user-service/Dockerfile
+    container_name: notification-user-service
+    environment:
+      - NODE_ENV=production
+      # RabbitMQ Configuration (Docker service name)
+      - RABBITMQ_URL=amqp://admin:password@notification-rabbitmq:5672
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=password
+      - RABBITMQ_HOST=notification-rabbitmq
+      - RABBITMQ_PORT=5672
+      # Database Configuration (Docker service names)
+      - DB_HOST=notification-postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_NAME=user_service
+    networks:
+      - notification-network
+    restart: unless-stopped
+    # Note: Infrastructure services (rabbitmq, postgres) should be running separately
+    # They should be on the same notification-network
+
+networks:
+  notification-network:
+    external: true
+

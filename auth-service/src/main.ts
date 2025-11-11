@@ -10,14 +10,15 @@ async function bootstrap() {
       transport: Transport.RMQ,
       options: {
         urls: RABBITMQ_CONFIG.urls,
-        queue: RABBITMQ_CONFIG.queues.template,
+        queue: RABBITMQ_CONFIG.queues.auth,
         queueOptions: {
           durable: true,
         },
       },
     },
   );
+
   await app.listen();
-  console.log('Template Service is listening');
+  console.log('Auth Service is listening on auth_queue (RabbitMQ)');
 }
 bootstrap();

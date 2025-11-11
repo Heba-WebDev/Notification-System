@@ -2,7 +2,6 @@ import {
   Controller,
   Post,
   Patch,
-  Param,
   Body,
   Inject,
   HttpException,
@@ -15,8 +14,8 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiParam,
   ApiBody,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom, timeout, catchError, throwError } from 'rxjs';
@@ -91,7 +90,9 @@ If auth creation fails, the user profile is automatically rolled back.
       },
     },
   })
-  async createUser(@Body() createUserDto: CreateUserDto): Promise<ResponseDto<any>> {
+  async createUser(
+    @Body() createUserDto: CreateUserDto,
+  ): Promise<ResponseDto<any>> {
     let user_id: string | null = null;
 
     try {
@@ -103,7 +104,10 @@ If auth creation fails, the user profile is automatically rolled back.
             email: createUserDto.email,
             name: createUserDto.name,
             push_token: createUserDto.push_token || null, // null if empty string was provided
-            preferences: createUserDto.preferences || { email: true, push: true },
+            preferences: createUserDto.preferences || {
+              email: true,
+              push: true,
+            },
           })
           .pipe(timeout(5000)),
       );
@@ -132,18 +136,21 @@ If auth creation fails, the user profile is automatically rolled back.
               timeout(5000),
               catchError((error: any) => {
                 // Extract error message from RPC exception
-                const errorMessage = 
+                const errorMessage =
                   error?.message ||
                   error?.response?.message ||
-                  (typeof error?.response === 'string' ? error.response : null) ||
+                  (typeof error?.response === 'string'
+                    ? error.response
+                    : null) ||
                   error?.error ||
                   'Failed to create auth credentials';
-                
+
                 // Create a new error with the extracted message
                 const extractedError = new Error(errorMessage);
-                (extractedError as any).status = error?.status || HttpStatus.BAD_REQUEST;
+                (extractedError as any).status =
+                  error?.status || HttpStatus.BAD_REQUEST;
                 (extractedError as any).originalError = error;
-                
+
                 return throwError(() => extractedError);
               }),
             ),
@@ -159,20 +166,23 @@ If auth creation fails, the user profile is automatically rolled back.
         }
       } catch (error: any) {
         // Log full error structure for debugging
-        console.error('[API Gateway] Auth service registration error - Full error object:', {
-          message: error?.message,
-          status: error?.status,
-          response: error?.response,
-          error: error?.error,
-          stack: error?.stack,
-          name: error?.name,
-          toString: error?.toString?.(),
-        });
-        
+        console.error(
+          '[API Gateway] Auth service registration error - Full error object:',
+          {
+            message: error?.message,
+            status: error?.status,
+            response: error?.response,
+            error: error?.error,
+            stack: error?.stack,
+            name: error?.name,
+            toString: error?.toString?.(),
+          },
+        );
+
         // Extract error message from RPC exception
         // NestJS RPC exceptions can have the message in various places
         let errorMessage = 'Failed to create auth credentials';
-        
+
         // Try different locations for the error message
         if (error?.message) {
           errorMessage = error.message;
@@ -182,42 +192,52 @@ If auth creation fails, the user profile is automatically rolled back.
           errorMessage = error.response;
         } else if (error?.error) {
           // Sometimes the error is nested in an 'error' property
-          errorMessage = typeof error.error === 'string' ? error.error : error.error?.message || errorMessage;
+          errorMessage =
+            typeof error.error === 'string'
+              ? error.error
+              : error.error?.message || errorMessage;
         }
-        
+
         // Clean up the error message (remove any extra formatting)
         errorMessage = errorMessage.trim();
-        
+
         // Determine appropriate HTTP status - ensure it's always a valid number
         // UnauthorizedException from auth service should map to 400 (Bad Request) for registration
         let statusCode = HttpStatus.BAD_REQUEST; // Default to 400
-        
+
         if (error?.status) {
           // If error.status is a number, use it (but map 401 to 400 for registration)
-          const status = typeof error.status === 'number' ? error.status : parseInt(String(error.status), 10);
+          const status =
+            typeof error.status === 'number'
+              ? error.status
+              : parseInt(String(error.status), 10);
           if (!isNaN(status) && status >= 400 && status <= 599) {
             statusCode = status === 401 ? HttpStatus.BAD_REQUEST : status;
           }
         } else if (error?.response?.statusCode) {
           // Sometimes status is in response.statusCode
-          const status = typeof error.response.statusCode === 'number' 
-            ? error.response.statusCode 
-            : parseInt(String(error.response.statusCode), 10);
+          const status =
+            typeof error.response.statusCode === 'number'
+              ? error.response.statusCode
+              : parseInt(String(error.response.statusCode), 10);
           if (!isNaN(status) && status >= 400 && status <= 599) {
             statusCode = status === 401 ? HttpStatus.BAD_REQUEST : status;
           }
         }
-        
+
         // Ensure statusCode is a valid HTTP status code (between 400-599)
         if (statusCode < 400 || statusCode > 599) {
           statusCode = HttpStatus.BAD_REQUEST;
         }
-        
-        console.error('[API Gateway] Auth service registration error - Extracted:', {
-          message: errorMessage,
-          status: statusCode,
-        });
-        
+
+        console.error(
+          '[API Gateway] Auth service registration error - Extracted:',
+          {
+            message: errorMessage,
+            status: statusCode,
+          },
+        );
+
         throw new HttpException(errorMessage, statusCode);
       }
 
@@ -271,6 +291,7 @@ If auth creation fails, the user profile is automatically rolled back.
    */
   @Patch('me/push-token')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Update my push token',
     description: `Updates the web push subscription token for the authenticated user.
@@ -325,14 +346,21 @@ See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.
     status: 400,
     description: 'Bad request - Invalid push token',
   })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Missing or invalid JWT token',
+  })
   async updateMyPushToken(
     @Request() req: any,
     @Body() body: { push_token: string },
   ): Promise<ResponseDto<any>> {
     const userId = req.user?.user_id;
-    
+
     if (!userId) {
-      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     try {
@@ -378,6 +406,7 @@ See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.
    */
   @Patch('me/preferences')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Update my preferences',
     description: `Updates notification preferences for the authenticated user.
@@ -432,14 +461,21 @@ See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.
     status: 400,
     description: 'Bad request - Invalid preferences',
   })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Missing or invalid JWT token',
+  })
   async updateMyPreferences(
     @Request() req: any,
     @Body() body: { email?: boolean; push?: boolean; language?: string },
   ): Promise<ResponseDto<any>> {
     const userId = req.user?.user_id;
-    
+
     if (!userId) {
-      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     try {
@@ -486,5 +522,4 @@ See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.
       };
     }
   }
-
 }
