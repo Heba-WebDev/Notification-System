@@ -8,58 +8,39 @@ if [ -f .env ]; then
   export $(cat .env | grep -v '^#' | xargs)
 fi
 
-# AGGRESSIVE CLEANUP: Remove container by multiple methods
+# NUCLEAR OPTION: Find and remove ANY container with "notification-email-service" in the name
 echo "🧹 Cleaning up any existing containers..."
-# Method 1: Remove by exact name (try multiple times to handle race conditions)
-for i in 1 2 3; do
-  docker rm -f notification-email-service 2>/dev/null || true
-done
-# Method 2: Find and remove ALL containers with matching name (handles any prefix/suffix)
-for container_id in $(docker ps -a --filter "name=notification-email-service" --format "{{.ID}}" 2>/dev/null); do
-  docker rm -f "$container_id" 2>/dev/null || true
-done
-# Method 3: Find and remove by service name pattern
-for container_id in $(docker ps -a --filter "name=email-service" --format "{{.ID}}" 2>/dev/null); do
-  docker rm -f "$container_id" 2>/dev/null || true
-done
-# Method 4: List all containers and remove if name matches (fallback)
-for container_id in $(docker ps -aq 2>/dev/null); do
-  container_name=$(docker inspect --format='{{.Name}}' "$container_id" 2>/dev/null || echo "")
-  if [[ "$container_name" == *"notification-email-service"* ]] || [[ "$container_name" == *"/notification-email-service"* ]]; then
+# List ALL containers and check their names directly
+docker ps -a --format "{{.ID}} {{.Names}}" | grep -i "notification-email-service" | awk '{print $1}' | while read container_id; do
+  if [ -n "$container_id" ]; then
+    echo "Found and removing container: $container_id"
+    docker stop "$container_id" 2>/dev/null || true
     docker rm -f "$container_id" 2>/dev/null || true
   fi
 done
+# Also try exact name
+docker stop notification-email-service 2>/dev/null || true
+docker rm -f notification-email-service 2>/dev/null || true
 
 # Build Docker image
 echo "📦 Building Docker image..."
 docker-compose build
 
-# Stop and remove everything (including volumes if needed)
+# Stop and remove everything using docker-compose
 echo "🛑 Stopping and removing containers..."
 docker-compose down --remove-orphans || true
 
-# FINAL AGGRESSIVE CLEANUP before starting
+# FINAL NUCLEAR CLEANUP: Check ALL containers one more time
 echo "🧹 Final cleanup pass..."
-# Try removing by exact name multiple times
-for i in 1 2 3; do
-  docker rm -f notification-email-service 2>/dev/null || true
-done
-# Find and remove ALL containers with matching name
-for container_id in $(docker ps -a --filter "name=notification-email-service" --format "{{.ID}}" 2>/dev/null); do
-  docker rm -f "$container_id" 2>/dev/null || true
-done
-# Find and remove by service name pattern
-for container_id in $(docker ps -a --filter "name=email-service" --format "{{.ID}}" 2>/dev/null); do
-  docker rm -f "$container_id" 2>/dev/null || true
-done
-# Final fallback: check all containers by name
-for container_id in $(docker ps -aq 2>/dev/null); do
-  container_name=$(docker inspect --format='{{.Name}}' "$container_id" 2>/dev/null || echo "")
-  if [[ "$container_name" == *"notification-email-service"* ]] || [[ "$container_name" == *"/notification-email-service"* ]]; then
-    echo "Found matching container: $container_id ($container_name), removing..."
+docker ps -a --format "{{.ID}} {{.Names}}" | grep -i "notification-email-service" | awk '{print $1}' | while read container_id; do
+  if [ -n "$container_id" ]; then
+    echo "Final cleanup: Removing container $container_id"
+    docker stop "$container_id" 2>/dev/null || true
     docker rm -f "$container_id" 2>/dev/null || true
   fi
 done
+docker stop notification-email-service 2>/dev/null || true
+docker rm -f notification-email-service 2>/dev/null || true
 
 # Start new container
 echo "▶️  Starting new container..."
