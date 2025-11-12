@@ -1,0 +1,62 @@
+name: Deploy Push Service
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'push-service/**'
+      - 'shared/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            
+            echo "🚀 Deploying Push Service..."
+            
+            # Repository root IS notification-system, clone directly here
+            DEPLOY_DIR="/mnt/filestore/notification-system"
+            
+            # Clone or update repository
+            if [ ! -d "$DEPLOY_DIR" ]; then
+              echo "📦 Cloning repository for the first time..."
+              mkdir -p "$(dirname $DEPLOY_DIR)"
+              cd "$(dirname $DEPLOY_DIR)"
+              git clone https://github.com/${{ github.repository }}.git notification-system
+            else
+              echo "🔄 Updating repository..."
+              cd "$DEPLOY_DIR"
+              git fetch origin
+              git reset --hard origin/main
+              git pull origin main || true
+            fi
+            
+            # Navigate to repository root
+            cd "$DEPLOY_DIR"
+            
+            # Verify we're in the right place
+            if [ ! -f "docker-compose.yml" ]; then
+              echo "❌ Error: docker-compose.yml not found! Current directory: $(pwd)"
+              exit 1
+            fi
+            
+            # Ensure Docker network exists
+            docker network create notification-network || true
+            
+            # Navigate to service directory and deploy
+            cd push-service
+            chmod +x deploy.sh || true
+            ./deploy.sh
+            
+            echo "✅ Push Service deployment complete!"

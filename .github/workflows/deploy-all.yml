@@ -22,25 +22,31 @@ jobs:
 
             echo "🚀 Starting automated deployment..."
 
-            # Define deployment directory (using /mnt/filestore for large storage)
+            # Repository root IS notification-system, clone directly here
             DEPLOY_DIR="/mnt/filestore/notification-system"
-            REPO_DIR="$DEPLOY_DIR/notification-system"
 
             # Step 1: Clone or update repository
-            if [ ! -d "$REPO_DIR" ]; then
+            if [ ! -d "$DEPLOY_DIR" ]; then
               echo "📦 Cloning repository for the first time..."
-              mkdir -p "$DEPLOY_DIR"
-              cd "$DEPLOY_DIR"
+              mkdir -p "$(dirname $DEPLOY_DIR)"
+              cd "$(dirname $DEPLOY_DIR)"
               git clone https://github.com/${{ github.repository }}.git notification-system
             else
               echo "🔄 Updating repository..."
-              cd "$REPO_DIR"
+              cd "$DEPLOY_DIR"
               git fetch origin
               git reset --hard origin/main
               git pull origin main || true
             fi
             
-            cd "$REPO_DIR"
+            # Navigate to repository root
+            cd "$DEPLOY_DIR"
+            
+            # Verify we're in the right place
+            if [ ! -f "docker-compose.yml" ]; then
+              echo "❌ Error: docker-compose.yml not found! Current directory: $(pwd)"
+              exit 1
+            fi
             
             # Step 2: Create Docker network if it doesn't exist
             echo "🌐 Creating Docker network..."
@@ -48,7 +54,7 @@ jobs:
             
             # Step 3: Setup and start infrastructure services
             echo "🏗️  Setting up infrastructure services..."
-            cd "$REPO_DIR"
+            cd "$DEPLOY_DIR"
             
             # Make init script executable
             chmod +x init-databases.sh || true

@@ -5,43 +5,56 @@ on:
     branches:
       - main
     paths:
-      - 'notification-system/auth-service/**'
-      - 'notification-system/user-service/**'
-      - 'notification-system/template-service/**'
-      - 'notification-system/email-service/**'
-      - 'notification-system/push-service/**'
-      - 'notification-system/api-gateway/**'
-      - 'notification-system/shared/**'
+      - 'auth-service/**'
+      - 'user-service/**'
+      - 'template-service/**'
+      - 'email-service/**'
+      - 'push-service/**'
+      - 'api-gateway/**'
+      - 'shared/**'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Fetch last 2 commits for git diff comparison
+      
       - name: Determine Changed Service
         id: changed-service
         run: |
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          # Get changed files - use before commit if available, otherwise compare with HEAD~1
+          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          else
+            # Fallback for manual triggers or first push
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          
           SERVICE=""
           
-          if echo "$CHANGED_FILES" | grep -q "notification-system/auth-service"; then
+          if echo "$CHANGED_FILES" | grep -q "auth-service"; then
             SERVICE="auth-service"
-          elif echo "$CHANGED_FILES" | grep -q "notification-system/user-service"; then
+          elif echo "$CHANGED_FILES" | grep -q "user-service"; then
             SERVICE="user-service"
-          elif echo "$CHANGED_FILES" | grep -q "notification-system/template-service"; then
+          elif echo "$CHANGED_FILES" | grep -q "template-service"; then
             SERVICE="template-service"
-          elif echo "$CHANGED_FILES" | grep -q "notification-system/email-service"; then
+          elif echo "$CHANGED_FILES" | grep -q "email-service"; then
             SERVICE="email-service"
-          elif echo "$CHANGED_FILES" | grep -q "notification-system/push-service"; then
+          elif echo "$CHANGED_FILES" | grep -q "push-service"; then
             SERVICE="push-service"
-          elif echo "$CHANGED_FILES" | grep -q "notification-system/api-gateway"; then
+          elif echo "$CHANGED_FILES" | grep -q "api-gateway"; then
             SERVICE="api-gateway"
-          elif echo "$CHANGED_FILES" | grep -q "notification-system/shared"; then
+          elif echo "$CHANGED_FILES" | grep -q "shared"; then
             # If shared changes, deploy all services
             SERVICE="all"
           fi
           
           echo "service=$SERVICE" >> $GITHUB_OUTPUT
+          echo "Changed files: $CHANGED_FILES"
           echo "Deploying: $SERVICE"
       
       - name: Deploy to VPS
@@ -54,28 +67,34 @@ jobs:
           script: |
             set -e
             
-            # Use /mnt/filestore for large storage (100GB available)
+            # Repository root IS notification-system, clone directly here
             DEPLOY_DIR="/mnt/filestore/notification-system"
-            REPO_DIR="$DEPLOY_DIR/notification-system"
             SERVICE="${{ steps.changed-service.outputs.service }}"
             
             echo "🚀 Deploying service: $SERVICE"
             
             # Clone or update repository
-            if [ ! -d "$REPO_DIR" ]; then
+            if [ ! -d "$DEPLOY_DIR" ]; then
               echo "📦 Cloning repository..."
-              mkdir -p "$DEPLOY_DIR"
-              cd "$DEPLOY_DIR"
+              mkdir -p "$(dirname $DEPLOY_DIR)"
+              cd "$(dirname $DEPLOY_DIR)"
               git clone https://github.com/${{ github.repository }}.git notification-system
             else
               echo "🔄 Updating repository..."
-              cd "$REPO_DIR"
+              cd "$DEPLOY_DIR"
               git fetch origin
               git reset --hard origin/main
               git pull origin main || true
             fi
             
-            cd "$REPO_DIR"
+            # Navigate to repository root
+            cd "$DEPLOY_DIR"
+            
+            # Verify we're in the right place
+            if [ ! -f "docker-compose.yml" ]; then
+              echo "❌ Error: docker-compose.yml not found! Current directory: $(pwd)"
+              exit 1
+            fi
             
             # Ensure Docker network exists
             docker network create notification-network || true
@@ -87,13 +106,13 @@ jobs:
               
               for SVC in "${SERVICES[@]}"; do
                 echo "Deploying $SVC..."
-                cd "$REPO_DIR/$SVC"
+                cd "$DEPLOY_DIR/$SVC"
                 chmod +x deploy.sh || true
                 ./deploy.sh || echo "⚠️  $SVC deployment had issues, continuing..."
               done
             else
               echo "📦 Deploying $SERVICE..."
-              cd "$REPO_DIR/$SERVICE"
+              cd "$DEPLOY_DIR/$SERVICE"
               chmod +x deploy.sh || true
               ./deploy.sh
             fi
