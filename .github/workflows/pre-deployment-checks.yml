@@ -1,0 +1,107 @@
+name: Pre-Deployment Checks
+
+on:
+  workflow_call: # Can be called from other workflows
+  workflow_dispatch: # Can be manually triggered
+  push:
+    branches:
+      - main
+
+jobs:
+  check-vps:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check VPS Connection and Services
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            
+            echo "🔍 Running pre-deployment checks..."
+            
+            # Check 1: Verify SSH connection works
+            echo "✅ SSH connection successful"
+            
+            # Check 2: Verify Docker is installed and accessible
+            echo "🔍 Checking Docker installation..."
+            if ! command -v docker &> /dev/null; then
+              echo "❌ ERROR: Docker is not installed!"
+              exit 1
+            fi
+            echo "✅ Docker is installed: $(docker --version)"
+            
+            # Check 3: Verify Docker daemon is running and user has permissions
+            echo "🔍 Checking Docker daemon access..."
+            if ! docker ps &> /dev/null; then
+              echo "❌ ERROR: Cannot access Docker daemon!"
+              echo "💡 Solution: Add user to docker group: sudo usermod -aG docker $USER"
+              echo "💡 Then logout and login again, or run: newgrp docker"
+              exit 1
+            fi
+            echo "✅ Docker daemon is accessible"
+            
+            # Check 4: Verify Docker Compose is installed
+            echo "🔍 Checking Docker Compose..."
+            if ! command -v docker-compose &> /dev/null; then
+              echo "❌ ERROR: Docker Compose is not installed!"
+              exit 1
+            fi
+            echo "✅ Docker Compose is installed: $(docker-compose --version)"
+            
+            # Check 5: Verify required services are running (if already deployed)
+            echo "🔍 Checking infrastructure services..."
+            
+            # Check if notification-network exists
+            if docker network ls | grep -q notification-network; then
+              echo "✅ Docker network 'notification-network' exists"
+            else
+              echo "⚠️  Docker network 'notification-network' does not exist (will be created on deployment)"
+            fi
+            
+            # Check PostgreSQL
+            if docker ps --format "{{.Names}}" | grep -q notification-postgres; then
+              echo "✅ PostgreSQL container is running"
+            else
+              echo "⚠️  PostgreSQL container is not running (will be started on deployment)"
+            fi
+            
+            # Check RabbitMQ
+            if docker ps --format "{{.Names}}" | grep -q notification-rabbitmq; then
+              echo "✅ RabbitMQ container is running"
+            else
+              echo "⚠️  RabbitMQ container is not running (will be started on deployment)"
+            fi
+            
+            # Check Redis
+            if docker ps --format "{{.Names}}" | grep -q notification-redis; then
+              echo "✅ Redis container is running"
+            else
+              echo "⚠️  Redis container is not running (will be started on deployment)"
+            fi
+            
+            # Check 6: Verify storage space
+            echo "🔍 Checking storage space..."
+            df -h /mnt/filestore | tail -1 | awk '{print "Storage: " $4 " available on " $1}'
+            
+            # Check 7: Verify deployment directory is writable
+            echo "🔍 Checking deployment directory..."
+            DEPLOY_DIR="/mnt/filestore/notification-system"
+            if [ -d "$(dirname $DEPLOY_DIR)" ]; then
+              if [ -w "$(dirname $DEPLOY_DIR)" ]; then
+                echo "✅ Deployment directory is writable: $(dirname $DEPLOY_DIR)"
+              else
+                echo "❌ ERROR: Deployment directory is not writable: $(dirname $DEPLOY_DIR)"
+                exit 1
+              fi
+            else
+              echo "⚠️  Deployment directory does not exist (will be created on deployment)"
+            fi
+            
+            echo ""
+            echo "✅ All pre-deployment checks passed!"
+            echo "🚀 Ready for deployment"
+
