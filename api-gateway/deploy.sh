@@ -16,6 +16,10 @@ docker-compose build
 echo "🛑 Stopping existing container..."
 docker-compose down --remove-orphans || true
 
+# Force remove container if it still exists (handles leftover containers)
+echo "🧹 Cleaning up any leftover containers..."
+docker rm -f notification-api-gateway 2>/dev/null || true
+
 # Start new container with remove orphans flag
 echo "▶️  Starting new container..."
 docker-compose up -d --remove-orphans
