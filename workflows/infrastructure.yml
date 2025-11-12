@@ -1,0 +1,68 @@
+name: Setup Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'notification-system/docker-compose.yml'
+      - 'notification-system/init-databases.sh'
+  workflow_dispatch:
+
+jobs:
+  setup-infrastructure:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Setup Infrastructure on VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            
+            echo "🏗️  Setting up infrastructure services..."
+            
+            # Use /mnt/filestore for large storage (100GB available)
+            DEPLOY_DIR="/mnt/filestore/notification-system"
+            REPO_DIR="$DEPLOY_DIR/notification-system"
+            
+            # Clone or update repository
+            if [ ! -d "$REPO_DIR" ]; then
+              echo "📦 Cloning repository..."
+              mkdir -p "$DEPLOY_DIR"
+              cd "$DEPLOY_DIR"
+              git clone https://github.com/${{ github.repository }}.git notification-system
+            else
+              echo "🔄 Updating repository..."
+              cd "$REPO_DIR"
+              git fetch origin
+              git reset --hard origin/main
+              git pull origin main || true
+            fi
+            
+            cd "$REPO_DIR"
+            
+            # Create Docker network
+            echo "🌐 Creating Docker network..."
+            docker network create notification-network || true
+            
+            # Make init script executable
+            chmod +x init-databases.sh || true
+            
+            # Start infrastructure services
+            echo "🚀 Starting infrastructure services..."
+            docker-compose -f docker-compose.yml up -d --force-recreate
+            
+            # Wait for services to be ready
+            echo "⏳ Waiting for services to be ready..."
+            sleep 20
+            
+            # Verify services are running
+            echo "🔍 Verifying infrastructure services..."
+            docker ps --filter "name=notification-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            
+            echo "✅ Infrastructure setup complete!"
+

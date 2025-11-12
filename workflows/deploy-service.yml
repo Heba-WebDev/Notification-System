@@ -1,0 +1,106 @@
+name: Deploy Microservice
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'notification-system/auth-service/**'
+      - 'notification-system/user-service/**'
+      - 'notification-system/template-service/**'
+      - 'notification-system/email-service/**'
+      - 'notification-system/push-service/**'
+      - 'notification-system/api-gateway/**'
+      - 'notification-system/shared/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Determine Changed Service
+        id: changed-service
+        run: |
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          SERVICE=""
+          
+          if echo "$CHANGED_FILES" | grep -q "notification-system/auth-service"; then
+            SERVICE="auth-service"
+          elif echo "$CHANGED_FILES" | grep -q "notification-system/user-service"; then
+            SERVICE="user-service"
+          elif echo "$CHANGED_FILES" | grep -q "notification-system/template-service"; then
+            SERVICE="template-service"
+          elif echo "$CHANGED_FILES" | grep -q "notification-system/email-service"; then
+            SERVICE="email-service"
+          elif echo "$CHANGED_FILES" | grep -q "notification-system/push-service"; then
+            SERVICE="push-service"
+          elif echo "$CHANGED_FILES" | grep -q "notification-system/api-gateway"; then
+            SERVICE="api-gateway"
+          elif echo "$CHANGED_FILES" | grep -q "notification-system/shared"; then
+            # If shared changes, deploy all services
+            SERVICE="all"
+          fi
+          
+          echo "service=$SERVICE" >> $GITHUB_OUTPUT
+          echo "Deploying: $SERVICE"
+      
+      - name: Deploy to VPS
+        if: steps.changed-service.outputs.service != ''
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            
+            # Use /mnt/filestore for large storage (100GB available)
+            DEPLOY_DIR="/mnt/filestore/notification-system"
+            REPO_DIR="$DEPLOY_DIR/notification-system"
+            SERVICE="${{ steps.changed-service.outputs.service }}"
+            
+            echo "🚀 Deploying service: $SERVICE"
+            
+            # Clone or update repository
+            if [ ! -d "$REPO_DIR" ]; then
+              echo "📦 Cloning repository..."
+              mkdir -p "$DEPLOY_DIR"
+              cd "$DEPLOY_DIR"
+              git clone https://github.com/${{ github.repository }}.git notification-system
+            else
+              echo "🔄 Updating repository..."
+              cd "$REPO_DIR"
+              git fetch origin
+              git reset --hard origin/main
+              git pull origin main || true
+            fi
+            
+            cd "$REPO_DIR"
+            
+            # Ensure Docker network exists
+            docker network create notification-network || true
+            
+            # Deploy service(s)
+            if [ "$SERVICE" = "all" ]; then
+              echo "📦 Deploying all services (shared library changed)..."
+              SERVICES=("auth-service" "user-service" "template-service" "email-service" "push-service" "api-gateway")
+              
+              for SVC in "${SERVICES[@]}"; do
+                echo "Deploying $SVC..."
+                cd "$REPO_DIR/$SVC"
+                chmod +x deploy.sh || true
+                ./deploy.sh || echo "⚠️  $SVC deployment had issues, continuing..."
+              done
+            else
+              echo "📦 Deploying $SERVICE..."
+              cd "$REPO_DIR/$SERVICE"
+              chmod +x deploy.sh || true
+              ./deploy.sh
+            fi
+            
+            # Verify deployment
+            echo "🔍 Verifying deployment..."
+            docker ps --filter "name=notification-" --format "table {{.Names}}\t{{.Status}}"
+            
+            echo "✅ Deployment complete!"
+
