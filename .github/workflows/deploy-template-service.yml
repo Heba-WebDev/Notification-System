@@ -60,7 +60,7 @@ jobs:
             fi
             
             # Ensure Docker network exists
-            docker network create notification-network || true
+            docker network create notification-network 2>/dev/null || true
             
             # Navigate to service directory and deploy
             cd template-service
