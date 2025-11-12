@@ -1,0 +1,74 @@
+name: Setup Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docker-compose.yml'
+      - 'init-databases.sh'
+  workflow_dispatch:
+
+jobs:
+  setup-infrastructure:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Setup Infrastructure on VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            
+            echo "🏗️  Setting up infrastructure services..."
+            
+            # Repository root IS notification-system, clone directly here
+            DEPLOY_DIR="/mnt/filestore/notification-system"
+            
+            # Clone or update repository
+            if [ ! -d "$DEPLOY_DIR" ]; then
+              echo "📦 Cloning repository..."
+              mkdir -p "$(dirname $DEPLOY_DIR)"
+              cd "$(dirname $DEPLOY_DIR)"
+              git clone https://github.com/${{ github.repository }}.git notification-system
+            else
+              echo "🔄 Updating repository..."
+              cd "$DEPLOY_DIR"
+              git fetch origin
+              git reset --hard origin/main
+              git pull origin main || true
+            fi
+            
+            # Navigate to repository root
+            cd "$DEPLOY_DIR"
+            
+            # Verify we're in the right place
+            if [ ! -f "docker-compose.yml" ]; then
+              echo "❌ Error: docker-compose.yml not found! Current directory: $(pwd)"
+              exit 1
+            fi
+            
+            # Create Docker network
+            echo "🌐 Creating Docker network..."
+            docker network create notification-network || true
+            
+            # Make init script executable
+            chmod +x init-databases.sh || true
+            
+            # Start infrastructure services
+            echo "🚀 Starting infrastructure services..."
+            docker-compose -f docker-compose.yml up -d --force-recreate
+            
+            # Wait for services to be ready
+            echo "⏳ Waiting for services to be ready..."
+            sleep 20
+            
+            # Verify services are running
+            echo "🔍 Verifying infrastructure services..."
+            docker ps --filter "name=notification-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            
+            echo "✅ Infrastructure setup complete!"
+
