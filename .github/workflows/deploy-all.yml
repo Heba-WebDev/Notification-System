@@ -105,10 +105,17 @@ jobs:
             echo "🏗️  Setting up infrastructure services..."
             cd "$DEPLOY_DIR"
             
+            # Pre-pull images to avoid rate limits (if not already cached)
+            echo "📥 Pre-pulling Docker images..."
+            docker pull rabbitmq:3-management || echo "⚠️  Failed to pull rabbitmq (may be cached or rate limited)"
+            docker pull postgres:15-alpine || echo "⚠️  Failed to pull postgres (may be cached or rate limited)"
+            docker pull redis:7-alpine || echo "⚠️  Failed to pull redis (may be cached or rate limited)"
+            
             # Make init script executable
             chmod +x init-databases.sh || true
             
             # Start infrastructure (RabbitMQ, PostgreSQL, Redis)
+            echo "🚀 Starting infrastructure services..."
             docker-compose -f docker-compose.yml up -d
             
             # Wait for infrastructure to be ready
@@ -123,7 +130,20 @@ jobs:
             
             for SERVICE in "${SERVICES[@]}"; do
               echo "📦 Deploying $SERVICE..."
-              cd "$REPO_DIR/$SERVICE"
+              
+              # Ensure we're in the repository root
+              cd "$DEPLOY_DIR"
+              
+              # Navigate to service directory
+              if [ ! -d "$SERVICE" ]; then
+                echo "❌ ERROR: Service directory not found: $SERVICE"
+                echo "Current directory: $(pwd)"
+                echo "Available directories:"
+                ls -la
+                exit 1
+              fi
+              
+              cd "$SERVICE"
               
               # Make deploy script executable
               chmod +x deploy.sh || true
