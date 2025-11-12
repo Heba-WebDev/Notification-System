@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Patch,
+  Get,
   Body,
   Inject,
   HttpException,
@@ -21,6 +22,8 @@ import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom, timeout, catchError, throwError } from 'rxjs';
 import { ResponseDto } from '@shared/index';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { UpdatePushTokenDto } from './dto/update-push-token.dto';
 import { AuthGuard } from './auth.guard';
 
 /**
@@ -33,6 +36,9 @@ export class UsersController {
   constructor(
     @Inject('USER_SERVICE') private readonly userService: ClientProxy,
     @Inject('AUTH_SERVICE') private readonly authService: ClientProxy,
+    @Inject('TEMPLATE_SERVICE') private readonly templateService: ClientProxy,
+    @Inject('EMAIL_SERVICE') private readonly emailService: ClientProxy,
+    @Inject('PUSH_SERVICE') private readonly pushService: ClientProxy,
   ) {}
 
   /**
@@ -98,13 +104,16 @@ If auth creation fails, the user profile is automatically rolled back.
     try {
       // Create user in User Service
       // push_token is already transformed (empty string -> null) by the DTO
-      console.log('[API Gateway] Sending user.create message to User Service:', {
-        email: createUserDto.email,
-        name: createUserDto.name,
-        has_push_token: !!createUserDto.push_token,
-        preferences: createUserDto.preferences,
-      });
-      
+      console.log(
+        '[API Gateway] Sending user.create message to User Service:',
+        {
+          email: createUserDto.email,
+          name: createUserDto.name,
+          has_push_token: !!createUserDto.push_token,
+          preferences: createUserDto.preferences,
+        },
+      );
+
       const userResponse = await firstValueFrom(
         this.userService
           .send('user.create', {
@@ -119,17 +128,20 @@ If auth creation fails, the user profile is automatically rolled back.
           .pipe(
             timeout(5000),
             catchError((error: any) => {
-              console.error('[API Gateway] Error sending user.create message:', {
-                error: error.message,
-                code: error.code,
-                name: error.name,
-                stack: error.stack,
-              });
+              console.error(
+                '[API Gateway] Error sending user.create message:',
+                {
+                  error: error.message,
+                  code: error.code,
+                  name: error.name,
+                  stack: error.stack,
+                },
+              );
               return throwError(() => error);
             }),
           ),
       );
-      
+
       console.log('[API Gateway] Received response from User Service:', {
         success: userResponse.success,
         has_data: !!userResponse.data,
@@ -267,6 +279,99 @@ If auth creation fails, the user profile is automatically rolled back.
         throw new HttpException(errorMessage, statusCode);
       }
 
+      // Queue welcome notifications if user has them enabled
+      try {
+        // Get user data with preferences to check notification settings
+        const userWithPreferencesResponse = await firstValueFrom(
+          this.userService.send('user.get_by_id', { user_id }),
+        );
+
+        if (
+          userWithPreferencesResponse.success &&
+          userWithPreferencesResponse.data
+        ) {
+          const user = userWithPreferencesResponse.data;
+          const userPreferences = user.preferences;
+
+          // Queue welcome email if email notifications are enabled
+          if (userPreferences?.email_notifications) {
+            try {
+              const emailTemplateResponse = await firstValueFrom(
+                this.templateService
+                  .send('template.get_by_name', {
+                    name: 'welcome-email',
+                    type: 'email',
+                    language: userPreferences.language || 'en',
+                  })
+                  .pipe(timeout(3000)),
+              );
+
+              if (emailTemplateResponse.success && emailTemplateResponse.data) {
+                const requestId = `welcome-${user_id}-${Date.now()}-email`;
+                this.emailService.emit('notification.email', {
+                  request_id: requestId,
+                  user: user,
+                  template: emailTemplateResponse.data,
+                  variables: {
+                    name: user.name || 'User',
+                    email: user.email,
+                  },
+                  priority: 0,
+                  metadata: {},
+                });
+              }
+            } catch (error) {
+              // Log but don't fail the request if notification queuing fails
+              console.error(
+                '[UsersController] Failed to queue welcome email:',
+                error,
+              );
+            }
+          }
+
+          // Queue welcome push if push notifications are enabled and user has push token
+          if (userPreferences?.push_notifications && user.push_token) {
+            try {
+              const pushTemplateResponse = await firstValueFrom(
+                this.templateService
+                  .send('template.get_by_name', {
+                    name: 'welcome-push',
+                    type: 'push',
+                    language: userPreferences.language || 'en',
+                  })
+                  .pipe(timeout(3000)),
+              );
+
+              if (pushTemplateResponse.success && pushTemplateResponse.data) {
+                const requestId = `welcome-${user_id}-${Date.now()}-push`;
+                this.pushService.emit('notification.push', {
+                  request_id: requestId,
+                  user: user,
+                  template: pushTemplateResponse.data,
+                  variables: {
+                    name: user.name || 'User',
+                  },
+                  priority: 0,
+                  metadata: {},
+                });
+              }
+            } catch (error) {
+              // Log but don't fail the request if notification queuing fails
+              console.error(
+                '[UsersController] Failed to queue welcome push:',
+                error,
+              );
+            }
+          }
+        }
+      } catch (error) {
+        // Log but don't fail the request if notification queuing fails
+        console.error(
+          '[UsersController] Failed to queue welcome notifications:',
+          error,
+        );
+      }
+
       return {
         success: true,
         message: 'User created successfully',
@@ -343,22 +448,11 @@ The push token should be a JSON string containing the PushSubscription object:
 }
 \`\`\`
 
+**Authentication Required:** This endpoint requires a valid JWT token. Click the "Authorize" button above and enter your token.
+
 See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.`,
   })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        push_token: {
-          type: 'string',
-          description: 'Web push subscription token (JSON string)',
-          example:
-            '{"endpoint":"https://...","keys":{"p256dh":"...","auth":"..."}}',
-        },
-      },
-      required: ['push_token'],
-    },
-  })
+  @ApiBody({ type: UpdatePushTokenDto })
   @ApiResponse({
     status: 200,
     description: 'Push token updated successfully',
@@ -380,11 +474,12 @@ See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - Missing or invalid JWT token',
+    description:
+      'Unauthorized - Missing or invalid JWT token. Make sure you have clicked "Authorize" and entered your token.',
   })
   async updateMyPushToken(
     @Request() req: any,
-    @Body() body: { push_token: string },
+    @Body() body: UpdatePushTokenDto,
   ): Promise<ResponseDto<any>> {
     const userId = req.user?.user_id;
 
@@ -429,6 +524,91 @@ See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.
   }
 
   /**
+   * Get my preferences
+   * Retrieves notification preferences for the authenticated user.
+   *
+   * @param req - Request object containing authenticated user
+   * @returns User preferences
+   */
+  @Get('me/preferences')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get my preferences',
+    description: `Retrieves notification preferences for the authenticated user.
+
+**Authentication Required:** This endpoint requires a valid JWT token. Click the "Authorize" button above and enter your token.`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Preferences retrieved successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Preferences retrieved successfully',
+        data: {
+          email_notifications: true,
+          push_notifications: true,
+          language: 'en',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description:
+      'Unauthorized - Missing or invalid JWT token. Make sure you have clicked "Authorize" and entered your token.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async getMyPreferences(@Request() req: any): Promise<ResponseDto<any>> {
+    const userId = req.user?.user_id;
+
+    if (!userId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    try {
+      const userResponse = await firstValueFrom(
+        this.userService.send('user.get_by_id', { user_id: userId }),
+      );
+
+      if (!userResponse.success || !userResponse.data) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
+
+      const user = userResponse.data;
+      const preferences = user.preferences || null;
+
+      return {
+        success: true,
+        message: 'Preferences retrieved successfully',
+        data: preferences
+          ? {
+              email_notifications: preferences.email_notifications,
+              push_notifications: preferences.push_notifications,
+              language: preferences.language,
+            }
+          : null,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        error.message || 'Failed to get preferences',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Update user preferences
    * Updates notification preferences for the authenticated user.
    *
@@ -446,30 +626,11 @@ See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.
 **Preferences:**
 - email: Enable/disable email notifications (boolean)
 - push: Enable/disable push notifications (boolean)
-- language: Preferred language (string, default: 'en')`,
+- language: Preferred language (string, default: 'en')
+
+**Authentication Required:** This endpoint requires a valid JWT token. Click the "Authorize" button above and enter your token.`,
   })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        email: {
-          type: 'boolean',
-          description: 'Enable/disable email notifications',
-          example: true,
-        },
-        push: {
-          type: 'boolean',
-          description: 'Enable/disable push notifications',
-          example: true,
-        },
-        language: {
-          type: 'string',
-          description: 'Preferred language',
-          example: 'en',
-        },
-      },
-    },
-  })
+  @ApiBody({ type: UpdatePreferencesDto })
   @ApiResponse({
     status: 200,
     description: 'Preferences updated successfully',
@@ -495,11 +656,12 @@ See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - Missing or invalid JWT token',
+    description:
+      'Unauthorized - Missing or invalid JWT token. Make sure you have clicked "Authorize" and entered your token.',
   })
   async updateMyPreferences(
     @Request() req: any,
-    @Body() body: { email?: boolean; push?: boolean; language?: string },
+    @Body() body: UpdatePreferencesDto,
   ): Promise<ResponseDto<any>> {
     const userId = req.user?.user_id;
 
@@ -535,6 +697,94 @@ See the Push Token Manager page at \`/push-tokens.html\` for a helper interface.
           response.message || 'Failed to update preferences',
           HttpStatus.BAD_REQUEST,
         );
+      }
+
+      // Get updated user data with preferences to check notification settings
+      const updatedUserResponse = await firstValueFrom(
+        this.userService.send('user.get_by_id', { user_id: userId }),
+      );
+
+      if (updatedUserResponse.success && updatedUserResponse.data) {
+        const user = updatedUserResponse.data;
+        const userPreferences = user.preferences;
+
+        // Queue notifications if user has them enabled
+        if (userPreferences) {
+          // Queue email notification if email notifications are enabled
+          if (userPreferences.email_notifications) {
+            try {
+              const emailTemplateResponse = await firstValueFrom(
+                this.templateService
+                  .send('template.get_by_name', {
+                    name: 'preferences-changed-email',
+                    type: 'email',
+                    language: userPreferences.language || 'en',
+                  })
+                  .pipe(timeout(3000)),
+              );
+
+              if (emailTemplateResponse.success && emailTemplateResponse.data) {
+                const requestId = `pref-${userId}-${Date.now()}-email`;
+                this.emailService.emit('notification.email', {
+                  request_id: requestId,
+                  user: user,
+                  template: emailTemplateResponse.data,
+                  variables: {
+                    name: user.name || 'User',
+                    email_notifications: userPreferences.email_notifications
+                      ? 'Enabled'
+                      : 'Disabled',
+                    push_notifications: userPreferences.push_notifications
+                      ? 'Enabled'
+                      : 'Disabled',
+                    language: userPreferences.language || 'en',
+                  },
+                  priority: 0,
+                  metadata: {},
+                });
+              }
+            } catch (error) {
+              // Log but don't fail the request if notification queuing fails
+              console.error(
+                '[UsersController] Failed to queue email notification:',
+                error,
+              );
+            }
+          }
+
+          // Queue push notification if push notifications are enabled and user has push token
+          if (userPreferences.push_notifications && user.push_token) {
+            try {
+              const pushTemplateResponse = await firstValueFrom(
+                this.templateService
+                  .send('template.get_by_name', {
+                    name: 'preferences-changed-push',
+                    type: 'push',
+                    language: userPreferences.language || 'en',
+                  })
+                  .pipe(timeout(3000)),
+              );
+
+              if (pushTemplateResponse.success && pushTemplateResponse.data) {
+                const requestId = `pref-${userId}-${Date.now()}-push`;
+                this.pushService.emit('notification.push', {
+                  request_id: requestId,
+                  user: user,
+                  template: pushTemplateResponse.data,
+                  variables: {},
+                  priority: 0,
+                  metadata: {},
+                });
+              }
+            } catch (error) {
+              // Log but don't fail the request if notification queuing fails
+              console.error(
+                '[UsersController] Failed to queue push notification:',
+                error,
+              );
+            }
+          }
+        }
       }
 
       return {
