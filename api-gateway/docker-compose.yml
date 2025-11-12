@@ -9,10 +9,10 @@ services:
     environment:
       - NODE_ENV=production
       # Override RABBITMQ_URL for Docker (use service name instead of localhost)
-      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:password@rabbitmq:5672}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:password@notification-rabbitmq:5672}
       - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-admin}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-password}
-      - RABBITMQ_HOST=${RABBITMQ_HOST:-rabbitmq}
+      - RABBITMQ_HOST=${RABBITMQ_HOST:-notification-rabbitmq}
       - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
       - JWT_SECRET=${JWT_SECRET:-development-jwt-secret-change-in-production-min-32-characters}
       - DB_HOST=${DB_HOST:-postgres}

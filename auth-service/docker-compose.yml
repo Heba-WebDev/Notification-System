@@ -22,12 +22,12 @@ services:
       # JWT Configuration
       - JWT_SECRET=${JWT_SECRET:-development-jwt-secret-change-in-production-min-32-characters}
     networks:
-      - notification-network
+      - notification-system_default
     restart: unless-stopped
     # Note: Infrastructure services (rabbitmq, postgres) should be running separately
-    # They should be on the same notification-network
+    # They should be on the same notification-system_default network
 
 networks:
-  notification-network:
+  notification-system_default:
     external: true
 
