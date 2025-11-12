@@ -45,9 +45,12 @@ jobs:
             else
               echo "🔄 Updating repository..."
               cd "$DEPLOY_DIR"
-              git fetch origin
-              git reset --hard origin/main
-              git pull origin main || true
+              # Clean up any stale refs and lock files
+              rm -f .git/refs/remotes/origin/main.lock 2>/dev/null || true
+              git fetch --prune origin || true
+              git fetch origin || true
+              git reset --hard origin/main || true
+              git clean -fd || true
             fi
             
             # Navigate to repository root
