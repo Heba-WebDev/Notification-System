@@ -34,9 +34,7 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Enter JWT token',
-        in: 'header',
+        description: 'Enter JWT token (without "Bearer" prefix)',
       },
       'JWT-auth', // matching up with @ApiBearerAuth() in controller!
     )
