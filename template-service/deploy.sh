@@ -12,13 +12,13 @@ fi
 echo "📦 Building Docker image..."
 docker-compose build
 
-# Stop existing container
+# Stop existing container and remove orphans
 echo "🛑 Stopping existing container..."
-docker-compose down || true
+docker-compose down --remove-orphans || true
 
-# Start new container
+# Start new container with remove orphans flag
 echo "▶️  Starting new container..."
-docker-compose up -d
+docker-compose up -d --remove-orphans
 
 echo "✅ Deployment complete!"
 

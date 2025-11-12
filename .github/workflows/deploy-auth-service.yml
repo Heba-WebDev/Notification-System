@@ -59,8 +59,8 @@ jobs:
               exit 1
             fi
             
-            # Ensure Docker network exists
-            docker network create notification-network || true
+            # Ensure Docker network exists (suppress error if already exists)
+            docker network create notification-network 2>/dev/null || true
             
             # Navigate to service directory and deploy
             cd auth-service
