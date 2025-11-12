@@ -25,6 +25,14 @@ jobs:
             
             echo "🚀 Deploying User Service..."
             
+            # Verify Docker access
+            if ! docker ps &> /dev/null; then
+              echo "❌ ERROR: Cannot access Docker daemon!"
+              echo "💡 Solution: Run on VPS: sudo usermod -aG docker $USER && newgrp docker"
+              exit 1
+            fi
+            echo "✅ Docker access verified"
+            
             # Repository root IS notification-system, clone directly here
             DEPLOY_DIR="/mnt/filestore/notification-system"
             

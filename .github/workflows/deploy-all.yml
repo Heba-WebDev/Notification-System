@@ -7,7 +7,44 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
+  pre-deployment-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check VPS Connection and Services
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            echo "🔍 Running pre-deployment checks..."
+            echo "✅ SSH connection successful"
+            
+            # Check Docker installation and access
+            if ! command -v docker &> /dev/null; then
+              echo "❌ ERROR: Docker is not installed!"
+              exit 1
+            fi
+            echo "✅ Docker is installed: $(docker --version)"
+            
+            if ! docker ps &> /dev/null; then
+              echo "❌ ERROR: Cannot access Docker daemon!"
+              echo "💡 Solution: Run on VPS: sudo usermod -aG docker $USER && newgrp docker"
+              exit 1
+            fi
+            echo "✅ Docker daemon is accessible"
+            
+            if ! command -v docker-compose &> /dev/null; then
+              echo "❌ ERROR: Docker Compose is not installed!"
+              exit 1
+            fi
+            echo "✅ Docker Compose is installed"
+            
+            echo "✅ All pre-deployment checks passed!"
+
   deploy:
+    needs: pre-deployment-checks
     runs-on: ubuntu-latest
 
     steps:
@@ -21,6 +58,18 @@ jobs:
             set -e
 
             echo "🚀 Starting automated deployment..."
+            
+            # Verify Docker access before proceeding
+            echo "🔍 Verifying Docker access..."
+            if ! docker ps &> /dev/null; then
+              echo "❌ ERROR: Cannot access Docker daemon!"
+              echo "💡 Solution: Run these commands on your VPS:"
+              echo "   sudo usermod -aG docker $USER"
+              echo "   newgrp docker"
+              echo "   # Or logout and login again"
+              exit 1
+            fi
+            echo "✅ Docker access verified"
 
             # Repository root IS notification-system, clone directly here
             DEPLOY_DIR="/mnt/filestore/notification-system"

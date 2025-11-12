@@ -73,6 +73,14 @@ jobs:
             
             echo "🚀 Deploying service: $SERVICE"
             
+            # Verify Docker access
+            if ! docker ps &> /dev/null; then
+              echo "❌ ERROR: Cannot access Docker daemon!"
+              echo "💡 Solution: Run on VPS: sudo usermod -aG docker $USER && newgrp docker"
+              exit 1
+            fi
+            echo "✅ Docker access verified"
+            
             # Clone or update repository
             if [ ! -d "$DEPLOY_DIR" ]; then
               echo "📦 Cloning repository..."
