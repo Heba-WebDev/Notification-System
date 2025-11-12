@@ -14,7 +14,7 @@ import { PushLog } from './entities/push-log.entity';
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || 'push_service',
       entities: [PushLog],
-      synchronize: process.env.NODE_ENV !== 'production', // false in production
+      synchronize: process.env.SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production', // Enable with SYNCHRONIZE=true env var
     }),
     TypeOrmModule.forFeature([PushLog]),
   ],

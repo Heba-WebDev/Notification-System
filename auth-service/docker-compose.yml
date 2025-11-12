@@ -6,6 +6,7 @@ services:
     container_name: notification-auth-service
     environment:
       - NODE_ENV=production
+      - SYNCHRONIZE=true
       # RabbitMQ Configuration (Docker service name)
       - RABBITMQ_URL=amqp://admin:password@notification-rabbitmq:5672
       - RABBITMQ_USERNAME=admin

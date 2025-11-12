@@ -14,7 +14,7 @@ import { EmailLog } from './entities/email-log.entity';
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || 'email_service',
       entities: [EmailLog],
-      synchronize: process.env.NODE_ENV !== 'production', // false in production
+      synchronize: process.env.SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production', // Enable with SYNCHRONIZE=true env var
     }),
     TypeOrmModule.forFeature([EmailLog]),
   ],
