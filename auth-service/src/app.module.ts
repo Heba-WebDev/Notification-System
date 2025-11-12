@@ -16,7 +16,7 @@ import { AppController } from './app.controller';
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || 'auth_service',
       entities: [Auth],
-      synchronize: process.env.NODE_ENV !== 'production', // false in production
+      synchronize: process.env.SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production', // Enable with SYNCHRONIZE=true env var
     }),
     TypeOrmModule.forFeature([Auth]),
     JwtModule.register({
