@@ -98,6 +98,13 @@ If auth creation fails, the user profile is automatically rolled back.
     try {
       // Create user in User Service
       // push_token is already transformed (empty string -> null) by the DTO
+      console.log('[API Gateway] Sending user.create message to User Service:', {
+        email: createUserDto.email,
+        name: createUserDto.name,
+        has_push_token: !!createUserDto.push_token,
+        preferences: createUserDto.preferences,
+      });
+      
       const userResponse = await firstValueFrom(
         this.userService
           .send('user.create', {
@@ -109,8 +116,25 @@ If auth creation fails, the user profile is automatically rolled back.
               push: true,
             },
           })
-          .pipe(timeout(5000)),
+          .pipe(
+            timeout(5000),
+            catchError((error: any) => {
+              console.error('[API Gateway] Error sending user.create message:', {
+                error: error.message,
+                code: error.code,
+                name: error.name,
+                stack: error.stack,
+              });
+              return throwError(() => error);
+            }),
+          ),
       );
+      
+      console.log('[API Gateway] Received response from User Service:', {
+        success: userResponse.success,
+        has_data: !!userResponse.data,
+        user_id: userResponse.data?.id,
+      });
 
       if (!userResponse.success || !userResponse.data?.id) {
         throw new HttpException(
@@ -275,8 +299,14 @@ If auth creation fails, the user profile is automatically rolled back.
       }
 
       // Otherwise, create a new HttpException with the error message
+      console.error('[API Gateway] Error in createUser:', {
+        error: error?.message,
+        code: error?.code,
+        name: error?.name,
+        user_id,
+      });
       const errorMessage = error?.message || 'Failed to create user';
-      throw new HttpException(errorMessage, HttpStatus.BAD_REQUEST);
+      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
