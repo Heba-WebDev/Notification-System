@@ -8,33 +8,23 @@ if [ -f .env ]; then
   export $(cat .env | grep -v '^#' | xargs)
 fi
 
+# SIMPLE SOLUTION: Remove ALL containers with this name pattern (handles any prefix/suffix)
+echo "🧹 Cleaning up any existing containers..."
+docker ps -a --filter "name=notification-user-service" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
+
 # Build Docker image
 echo "📦 Building Docker image..."
 docker-compose build
 
-# Force remove container by name and ID before stopping (handles leftover containers)
-echo "🧹 Cleaning up any leftover containers..."
-# Remove by exact name
-docker rm -f notification-user-service 2>/dev/null || true
-# Remove by name pattern (handles docker-compose prefixed names)
-docker ps -a --filter "name=notification-user-service" -q | xargs -r docker rm -f 2>/dev/null || true
-# Remove any container with user-service in the name
-docker ps -a --filter "name=user-service" -q | xargs -r docker rm -f 2>/dev/null || true
+# Stop and remove everything (including volumes if needed)
+echo "🛑 Stopping and removing containers..."
+docker-compose down --remove-orphans || true
 
-# Stop existing container and remove orphans
-# Use explicit project name to match the up command
-echo "🛑 Stopping existing container..."
-COMPOSE_PROJECT_NAME=notification docker-compose down --remove-orphans || true
+# Final cleanup - remove by any possible name pattern
+docker ps -a --filter "name=notification-user-service" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
 
-# Final cleanup - remove by all possible name patterns
-docker rm -f notification-user-service 2>/dev/null || true
-docker ps -a --filter "name=notification-user-service" -q | xargs -r docker rm -f 2>/dev/null || true
-docker ps -a --filter "name=user-service" -q | xargs -r docker rm -f 2>/dev/null || true
-
-# Start new container with force recreate and remove orphans flag
-# Use explicit project name to prevent docker-compose from adding prefixes
+# Start new container
 echo "▶️  Starting new container..."
-COMPOSE_PROJECT_NAME=notification docker-compose up -d --force-recreate --remove-orphans
+docker-compose up -d --remove-orphans
 
 echo "✅ Deployment complete!"
-
