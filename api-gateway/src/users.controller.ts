@@ -134,6 +134,8 @@ If auth creation fails, the user profile is automatically rolled back.
         success: userResponse.success,
         has_data: !!userResponse.data,
         user_id: userResponse.data?.id,
+        message: userResponse.message,
+        error: userResponse.error,
       });
 
       if (!userResponse.success || !userResponse.data?.id) {

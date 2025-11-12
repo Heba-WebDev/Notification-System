@@ -34,17 +34,28 @@ export class AppService {
   }
 
   async createUser(userData: Partial<User>): Promise<User> {
-    const user = this.userRepository.create(userData);
+    // Remove 'preferences' as it's a relation, not a direct field
+    const { preferences: inputPreferences, ...userFields } = userData;
+    
+    console.log('[User Service] Creating user with fields:', {
+      name: userFields.name,
+      email: userFields.email,
+      has_push_token: !!userFields.push_token,
+      fields: Object.keys(userFields),
+    });
+    
+    const user = this.userRepository.create(userFields);
     const savedUser = await this.userRepository.save(user);
 
-    // create default preferences
-    const preferences = this.preferencesRepository.create({
+    // Create default preferences (ignore preferences from input for now)
+    // TODO: Support custom preferences from input
+    const userPreferences = this.preferencesRepository.create({
       user_id: savedUser.id,
       email_notifications: true,
       push_notifications: true,
       language: 'en',
     });
-    await this.preferencesRepository.save(preferences);
+    await this.preferencesRepository.save(userPreferences);
 
     return savedUser;
   }
