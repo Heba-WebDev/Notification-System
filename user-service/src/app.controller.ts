@@ -25,6 +25,7 @@ export class AppController {
         message: 'User retrieved successfully',
         data: {
           id: user.id,
+          name: user.name,
           email: user.email,
           push_token: user.push_token,
           preferences: user.preferences || null,
@@ -53,13 +54,35 @@ export class AppController {
   @MessagePattern('user.create')
   async createUser(@Payload() data: Partial<User>) {
     try {
+      console.log('[User Service] Received user.create request:', {
+        email: data.email,
+        has_name: !!data.name,
+        has_push_token: !!data.push_token,
+        has_preferences: !!data.preferences,
+      });
+      
       const user = await this.appService.createUser(data);
+      console.log('[User Service] User created successfully:', {
+        id: user.id,
+        email: user.email,
+      });
+      
       return {
         success: true,
         message: 'User created successfully',
         data: user,
       };
     } catch (error) {
+      console.error('[User Service] Error creating user:', {
+        error: error.message,
+        stack: error.stack,
+        data: {
+          email: data.email,
+          has_name: !!data.name,
+          has_push_token: !!data.push_token,
+        },
+      });
+      
       return {
         success: false,
         message: 'Failed to create user',
