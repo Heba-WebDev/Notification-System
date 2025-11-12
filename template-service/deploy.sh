@@ -10,8 +10,8 @@ fi
 
 # NUCLEAR OPTION: Find and remove ANY container with "notification-template-service" in the name
 echo "🧹 Cleaning up any existing containers..."
-# List ALL containers and check their names directly
-docker ps -a --format "{{.ID}} {{.Names}}" | grep -i "notification-template-service" | awk '{print $1}' | while read container_id; do
+# List ALL containers and check their names directly (handle leading slash)
+docker ps -a --format "{{.ID}} {{.Names}}" | grep -iE "(notification-template-service|/notification-template-service)" | awk '{print $1}' | while read container_id; do
   if [ -n "$container_id" ]; then
     echo "Found and removing container: $container_id"
     docker stop "$container_id" 2>/dev/null || true
@@ -21,6 +21,14 @@ done
 # Also try exact name
 docker stop notification-template-service 2>/dev/null || true
 docker rm -f notification-template-service 2>/dev/null || true
+# Try removing by the exact ID format Docker might use
+docker ps -a --format "{{.ID}} {{.Names}}" | awk '$2 ~ /notification-template-service/ {print $1}' | while read container_id; do
+  if [ -n "$container_id" ]; then
+    echo "Removing container by awk match: $container_id"
+    docker stop "$container_id" 2>/dev/null || true
+    docker rm -f "$container_id" 2>/dev/null || true
+  fi
+done
 
 # Build Docker image
 echo "📦 Building Docker image..."
@@ -32,15 +40,32 @@ docker-compose down --remove-orphans || true
 
 # FINAL NUCLEAR CLEANUP: Check ALL containers one more time
 echo "🧹 Final cleanup pass..."
-docker ps -a --format "{{.ID}} {{.Names}}" | grep -i "notification-template-service" | awk '{print $1}' | while read container_id; do
+# Use multiple methods to catch all variations
+docker ps -a --format "{{.ID}} {{.Names}}" | grep -iE "(notification-template-service|/notification-template-service)" | awk '{print $1}' | while read container_id; do
   if [ -n "$container_id" ]; then
     echo "Final cleanup: Removing container $container_id"
     docker stop "$container_id" 2>/dev/null || true
     docker rm -f "$container_id" 2>/dev/null || true
   fi
 done
+# Also use awk for more reliable matching
+docker ps -a --format "{{.ID}} {{.Names}}" | awk '$2 ~ /notification-template-service/ {print $1}' | while read container_id; do
+  if [ -n "$container_id" ]; then
+    echo "Final cleanup awk: Removing container $container_id"
+    docker stop "$container_id" 2>/dev/null || true
+    docker rm -f "$container_id" 2>/dev/null || true
+  fi
+done
+# Try exact name
 docker stop notification-template-service 2>/dev/null || true
 docker rm -f notification-template-service 2>/dev/null || true
+# Last resort: remove by the specific container ID if we can find it
+CONFLICT_ID=$(docker ps -a --format "{{.ID}} {{.Names}}" | awk '$2 ~ /notification-template-service/ {print $1}' | head -1)
+if [ -n "$CONFLICT_ID" ]; then
+  echo "Force removing conflict container: $CONFLICT_ID"
+  docker stop "$CONFLICT_ID" 2>/dev/null || true
+  docker rm -f "$CONFLICT_ID" 2>/dev/null || true
+fi
 
 # Start new container
 echo "▶️  Starting new container..."
