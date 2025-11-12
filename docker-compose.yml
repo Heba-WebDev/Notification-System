@@ -10,6 +10,8 @@ services:
       RABBITMQ_DEFAULT_PASS: password
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - notification-network
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -29,6 +31,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    networks:
+      - notification-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin"]
       interval: 10s
@@ -43,6 +47,8 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/var/lib/redis
+    networks:
+      - notification-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -53,3 +59,7 @@ volumes:
   rabbitmq_data:
   postgres_data:
   redis_data:
+
+networks:
+  notification-network:
+    external: true

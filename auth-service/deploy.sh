@@ -16,9 +16,11 @@ docker-compose build
 echo "🛑 Stopping existing container..."
 docker-compose down --remove-orphans || true
 
-# Force remove container if it still exists (handles leftover containers)
+# Force remove container by name and by ID if it still exists (handles leftover containers)
 echo "🧹 Cleaning up any leftover containers..."
 docker rm -f notification-auth-service 2>/dev/null || true
+# Also try to find and remove by container name pattern
+docker ps -a --filter "name=notification-auth-service" -q | xargs -r docker rm -f 2>/dev/null || true
 
 # Start new container with remove orphans flag
 echo "▶️  Starting new container..."
