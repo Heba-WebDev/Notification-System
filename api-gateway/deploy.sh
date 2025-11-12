@@ -67,9 +67,24 @@ if [ -n "$CONFLICT_ID" ]; then
   docker rm -f "$CONFLICT_ID" 2>/dev/null || true
 fi
 
-# Start new container
+# ABSOLUTE FINAL CHECK: Remove container RIGHT before starting (catches any created between cleanup and now)
+echo "🔍 Absolute final check before starting..."
+ALL_CONTAINERS=$(docker ps -a --format "{{.ID}} {{.Names}}" 2>/dev/null)
+if echo "$ALL_CONTAINERS" | grep -qi "notification-api-gateway"; then
+  echo "⚠️  Found container right before start, removing..."
+  echo "$ALL_CONTAINERS" | grep -i "notification-api-gateway" | awk '{print $1}' | while read id; do
+    echo "Force removing: $id"
+    docker stop "$id" 2>/dev/null || true
+    docker rm -f "$id" 2>/dev/null || true
+  done
+  # Also try by exact name one more time
+  docker stop notification-api-gateway 2>/dev/null || true
+  docker rm -f notification-api-gateway 2>/dev/null || true
+fi
+
+# Start new container with force recreate
 echo "▶️  Starting new container..."
-docker-compose up -d --remove-orphans
+docker-compose up -d --force-recreate --remove-orphans
 
 # Wait for health check
 echo "⏳ Waiting for service to be healthy..."
