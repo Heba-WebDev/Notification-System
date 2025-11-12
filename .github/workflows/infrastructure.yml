@@ -63,6 +63,12 @@ jobs:
             echo "🌐 Creating Docker network..."
             docker network create notification-network || true
             
+            # Pre-pull images to avoid rate limits (if not already cached)
+            echo "📥 Pre-pulling Docker images..."
+            docker pull rabbitmq:3-management || echo "⚠️  Failed to pull rabbitmq (may be cached or rate limited)"
+            docker pull postgres:15-alpine || echo "⚠️  Failed to pull postgres (may be cached or rate limited)"
+            docker pull redis:7-alpine || echo "⚠️  Failed to pull redis (may be cached or rate limited)"
+            
             # Make init script executable
             chmod +x init-databases.sh || true
             
