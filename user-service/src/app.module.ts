@@ -15,7 +15,12 @@ import { UserPreferences } from './entities/user-preferences.entity';
       password: String(process.env.DB_PASSWORD || ''),
       database: process.env.DB_NAME || 'user_service',
       entities: [User, UserPreferences],
-      synchronize: process.env.SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production', // Enable with SYNCHRONIZE=true env var
+      synchronize:
+        process.env.SYNCHRONIZE === 'true' ||
+        process.env.NODE_ENV !== 'production',
+      retryAttempts: 10,
+      retryDelay: 3000,
+      autoLoadEntities: true,
     }),
     TypeOrmModule.forFeature([User, UserPreferences]),
   ],

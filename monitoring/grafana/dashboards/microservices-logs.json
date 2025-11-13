@@ -13,7 +13,7 @@
         "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "{job=\"docker-logs\"}",
+            "expr": "{job=\"nestjs-logs\"}",
             "refId": "A"
           }
         ],
@@ -35,7 +35,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
         "targets": [
           {
-            "expr": "{job=\"docker-logs\", level=~\"error|Error|ERROR\"}",
+            "expr": "{job=\"nestjs-logs\", level=~\"error|Error|ERROR\"}",
             "refId": "A"
           }
         ],
@@ -57,7 +57,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
         "targets": [
           {
-            "expr": "sum by (service) (count_over_time({job=\"docker-logs\"}[5m]))",
+            "expr": "sum by (service) (count_over_time({job=\"nestjs-logs\"}[5m]))",
             "refId": "A",
             "format": "table",
             "instant": true
@@ -88,7 +88,7 @@
         "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
         "targets": [
           {
-            "expr": "sum(rate({job=\"docker-logs\"}[5m])) by (service)",
+            "expr": "sum(rate({job=\"nestjs-logs\"}[5m])) by (service)",
             "refId": "A",
             "legendFormat": "{{service}}"
           }
@@ -110,7 +110,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
         "targets": [
           {
-            "expr": "sum(rate({job=\"docker-logs\", level=~\"error|Error|ERROR\"}[5m])) by (service)",
+            "expr": "sum(rate({job=\"nestjs-logs\", level=~\"error|Error|ERROR\"}[5m])) by (service)",
             "refId": "A",
             "legendFormat": "{{service}}"
           }
@@ -132,7 +132,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 24},
         "targets": [
           {
-            "expr": "count_over_time({job=\"docker-logs\", service=\"api-gateway\"}[1m])",
+            "expr": "count_over_time({job=\"nestjs-logs\", service=\"api-gateway\"}[1m])",
             "refId": "A"
           }
         ],
@@ -161,7 +161,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 24},
         "targets": [
           {
-            "expr": "count_over_time({job=\"docker-logs\", service=\"email-service\"}[1m])",
+            "expr": "count_over_time({job=\"nestjs-logs\", service=\"email-service\"}[1m])",
             "refId": "A"
           }
         ],
@@ -190,7 +190,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 28},
         "targets": [
           {
-            "expr": "count_over_time({job=\"docker-logs\", service=\"push-service\"}[1m])",
+            "expr": "count_over_time({job=\"nestjs-logs\", service=\"push-service\"}[1m])",
             "refId": "A"
           }
         ],
@@ -219,7 +219,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 28},
         "targets": [
           {
-            "expr": "count_over_time({job=\"docker-logs\", service=\"user-service\"}[1m])",
+            "expr": "count_over_time({job=\"nestjs-logs\", service=\"user-service\"}[1m])",
             "refId": "A"
           }
         ],
