@@ -113,13 +113,27 @@ jobs:
             docker pull rabbitmq:3-management || echo "⚠️  Failed to pull rabbitmq (may be cached or rate limited)"
             docker pull postgres:15-alpine || echo "⚠️  Failed to pull postgres (may be cached or rate limited)"
             docker pull redis:7-alpine || echo "⚠️  Failed to pull redis (may be cached or rate limited)"
+            docker pull grafana/loki:2.9.2 || echo "⚠️  Failed to pull loki (may be cached or rate limited)"
+            docker pull grafana/promtail:2.9.2 || echo "⚠️  Failed to pull promtail (may be cached or rate limited)"
+            docker pull grafana/grafana:10.2.2 || echo "⚠️  Failed to pull grafana (may be cached or rate limited)"
             
             # Make init script executable
             chmod +x init-databases.sh || true
             
-            # Start infrastructure (RabbitMQ, PostgreSQL, Redis)
+            # Clean up existing containers before starting (prevents conflicts)
+            echo "🧹 Cleaning up existing containers..."
+            # Stop and remove monitoring containers specifically
+            docker stop notification-loki notification-promtail notification-grafana 2>/dev/null || true
+            docker rm -f notification-loki notification-promtail notification-grafana 2>/dev/null || true
+            # Stop and remove infrastructure containers
+            docker stop notification-rabbitmq notification-postgres notification-redis 2>/dev/null || true
+            docker rm -f notification-rabbitmq notification-postgres notification-redis 2>/dev/null || true
+            # Use docker-compose down to clean up any remaining containers
+            docker-compose -f docker-compose.yml down --remove-orphans 2>/dev/null || true
+            
+            # Start infrastructure (RabbitMQ, PostgreSQL, Redis, Monitoring)
             echo "🚀 Starting infrastructure services..."
-            docker-compose -f docker-compose.yml up -d
+            docker-compose -f docker-compose.yml up -d --force-recreate --remove-orphans
             
             # Wait for infrastructure to be ready
             echo "⏳ Waiting for infrastructure services to be ready..."
